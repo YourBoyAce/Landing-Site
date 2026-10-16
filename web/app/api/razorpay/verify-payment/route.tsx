@@ -493,73 +493,42 @@ export async function POST(req: Request) {
       }
     }
 
-    let finalCourseId = null;
+    let finalCourseId: string | null = null;
     const isValidUuid = (id: any) => typeof id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
-    // 1. Try resolving using the exact product_uuid mapped from Sanity
-    if (isValidUuid(product_uuid)) {
-      const { data: mcData } = await supabasePublic
-        .from("maincourses")
-        .select("id, title")
-        .eq("product_id", product_uuid)
-        .limit(1)
-        .maybeSingle();
-
-      if (mcData) {
-        finalCourseId = mcData.id;
-      }
-    }
-
-    // 2. If no product_uuid provided, check if course_id itself is a UUID
-    if (!finalCourseId && isValidUuid(course_id)) {
+    // 1. Direct course ID check
+    const candidateId = isValidUuid(course_id) ? course_id : (isValidUuid(product_uuid) ? product_uuid : null);
+    if (candidateId) {
       const { data: cCheck } = await supabasePublic
         .from("maincourses")
         .select("id")
-        .eq("id", course_id)
+        .eq("id", candidateId)
         .maybeSingle();
       if (cCheck) finalCourseId = cCheck.id;
     }
 
-    // 3. If still unresolved, try looking up by name or wildcard matching
+    // 2. Title matching in maincourses
     if (!finalCourseId) {
-      const searchTerm = course_id || course_name || "Course";
-      const searchKeyword = searchTerm.split(" ")[0]; // Use first word for better matching
-      // Use limit(1) to avoid "multiple rows" error from maybeSingle
-      const { data: courseData } = await supabasePublic
+      const { data: allCourses } = await supabasePublic
         .from("maincourses")
-        .select("id")
-        .ilike("title", `%${searchKeyword}%`)
-        .limit(1)
-        .maybeSingle();
+        .select("id, title");
 
-      if (courseData) {
-        finalCourseId = courseData.id;
-      } else {
-        const { data: anyCourse } = await supabasePublic
-          .from("maincourses")
-          .select("id")
-          .limit(1)
-          .single();
-        if (anyCourse) finalCourseId = anyCourse.id;
+      if (allCourses && allCourses.length > 0) {
+        const norm = (s: any) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const targetSearch = norm(course_name || course_id);
+        const match = allCourses.find((c) => {
+          const cNorm = norm(c.title);
+          return cNorm && (targetSearch.includes(cNorm) || cNorm.includes(targetSearch));
+        });
+        if (match) {
+          finalCourseId = match.id;
+        } else {
+          finalCourseId = allCourses[0].id;
+        }
       }
     }
 
-    // ------------------------------------------------------------------
-    // 4.5. Ensure product_uuid is actually a product ID, not a course ID
-    // ------------------------------------------------------------------
-    let finalProductUuid = isValidUuid(product_uuid) ? product_uuid : null;
-    if (finalProductUuid) {
-      // Check if it's actually a course ID mistakenly passed as product_uuid
-      const { data: isCourse } = await supabasePublic
-        .from("maincourses")
-        .select("product_id")
-        .eq("id", finalProductUuid)
-        .maybeSingle();
-
-      if (isCourse && isCourse.product_id) {
-        finalProductUuid = isCourse.product_id;
-      }
-    }
+    let finalProductUuid = finalCourseId;
 
     // ------------------------------------------------------------------
     // 5. Create order in phase-2.orders
@@ -784,30 +753,34 @@ export async function POST(req: Request) {
         // Single-course mode — reuse already-resolved IDs
         itemCourseId = finalCourseId;
       } else {
-        // Cart mode — resolve by product_id if valid UUID, or title search
-        if (isValidUuid(cartItem.product_id)) {
-          const { data: mcByProd } = await supabasePublic
+        // Cart mode — direct course ID or title search
+        const candidateCartId = isValidUuid(cartItem.product_id) ? cartItem.product_id : (isValidUuid(cartItem.course_slug) ? cartItem.course_slug : null);
+        if (candidateCartId) {
+          const { data: mcCheck } = await supabasePublic
             .from("maincourses")
             .select("id")
-            .eq("product_id", cartItem.product_id)
-            .limit(1)
+            .eq("id", candidateCartId)
             .maybeSingle();
-          if (mcByProd?.id) itemCourseId = mcByProd.id;
+          if (mcCheck?.id) itemCourseId = mcCheck.id;
         }
 
         if (!itemCourseId && cartItem.course_title) {
-          const courseKeyword = cartItem.course_title.split(" ")[0]; // Use first word for better matching
-          const { data: mcRow } = await supabasePublic
+          const { data: allCourses } = await supabasePublic
             .from("maincourses")
-            .select("id")
-            .ilike("title", `%${courseKeyword}%`)
-            .limit(1)
-            .maybeSingle();
-          itemCourseId = mcRow?.id ?? null;
+            .select("id, title");
+          if (allCourses && allCourses.length > 0) {
+            const norm = (s: any) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+            const titleNorm = norm(cartItem.course_title);
+            const match = allCourses.find((c) => {
+              const cNorm = norm(c.title);
+              return cNorm && (titleNorm.includes(cNorm) || cNorm.includes(titleNorm));
+            });
+            if (match?.id) itemCourseId = match.id;
+          }
         }
 
         if (!itemCourseId) {
-          itemCourseId = finalCourseId; // fall back to primary if not found
+          itemCourseId = finalCourseId;
         }
       }
 
@@ -847,22 +820,8 @@ export async function POST(req: Request) {
         itemBundleId = finalBundleId;
       }
 
-      // 3. Resolve product_id (must be a valid UUID or null to avoid 22P02 Postgres errors)
+      // 3. Course-first enrollment: product_id is null to avoid legacy foreign key constraint violations
       let itemProductId: string | null = null;
-      if (isValidUuid(cartItem.product_id)) {
-        itemProductId = cartItem.product_id ?? null;
-      } else if (isValidUuid(finalProductUuid)) {
-        itemProductId = finalProductUuid;
-      } else if (itemCourseId) {
-        const { data: courseRow } = await supabasePublic
-          .from("maincourses")
-          .select("product_id")
-          .eq("id", itemCourseId)
-          .maybeSingle();
-        if (courseRow?.product_id && isValidUuid(courseRow.product_id)) {
-          itemProductId = courseRow.product_id;
-        }
-      }
 
       const { data: existingEnrollment } = await supabase
         .from("enrollments")
@@ -896,6 +855,34 @@ export async function POST(req: Request) {
           access_end_date: accessEndDate.toISOString(),
         });
         enrollmentError = error;
+      }
+
+      // Sync to course_members and course_enrollments for legacy & portal views
+      try {
+        if (itemCourseId && email) {
+          await supabasePublic
+            .from("course_members")
+            .delete()
+            .eq("email", email.toLowerCase().trim());
+
+          await supabasePublic.from("course_members").insert({
+            maincourse_id: itemCourseId,
+            email: email.toLowerCase().trim(),
+            status: "active",
+          });
+        }
+        if (itemCourseId && authUserId) {
+          await supabasePublic.from("course_enrollments").upsert(
+            {
+              user_id: authUserId,
+              course_id: itemCourseId,
+              status: "active",
+            },
+            { onConflict: "user_id,course_id" },
+          );
+        }
+      } catch (syncErr) {
+        console.warn("[verify-payment] course_members/course_enrollments sync warning:", syncErr);
       }
 
       if (enrollmentError) {

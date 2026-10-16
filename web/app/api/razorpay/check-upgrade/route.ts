@@ -6,9 +6,12 @@ export async function POST(req: NextRequest) {
     const {
       email,
       productUuid: providedProductUuid,
+      courseId: providedCourseId,
       targetBundleTitle,
       targetBundlePrice,
     } = await req.json();
+
+    const targetCourseFilter = providedCourseId || providedProductUuid;
 
     if (!email || !targetBundleTitle || targetBundlePrice === undefined) {
       return NextResponse.json(
@@ -63,16 +66,16 @@ export async function POST(req: NextRequest) {
     if (!phase2User)
       return NextResponse.json({ eligible: false, price: fullPrice });
 
-    // 3. Find active enrollment for this course, or any Starter course if productUuid is missing
+    // 3. Find active enrollment for this course
     let enrollmentQuery = supabase
       .from("enrollments")
       .select("*, bundles(bundle_name)")
       .eq("user_id", phase2User.id)
       .eq("status", "active");
 
-    if (providedProductUuid) {
+    if (targetCourseFilter) {
       enrollmentQuery = enrollmentQuery.or(
-        `course_id.eq.${providedProductUuid},product_id.eq.${providedProductUuid}`,
+        `course_id.eq.${targetCourseFilter},product_id.eq.${targetCourseFilter}`,
       );
     }
 
@@ -82,11 +85,9 @@ export async function POST(req: NextRequest) {
     if (!enrollments || enrollments.length === 0)
       return NextResponse.json({ eligible: false, price: fullPrice });
 
-    // Instead of just one enrollment, we gather all eligible enrollments
+    // Filter enrollments eligible for upgrade
     const targetLevel = getTierLevel(targetBundleTitle);
     
-    // We intentionally don't filter by providedProductUuid if we want to show all courses
-    // that are eligible for upgrade, as requested by the user.
     const eligibleEnrollments = enrollments.filter((e) => {
       const bName = (e.bundles as any)?.bundle_name || "Starter";
       return getTierLevel(bName) < targetLevel;
@@ -100,40 +101,25 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Prepare arrays to fetch data in parallel
+    // Fetch canonical course titles from public.maincourses
+    const courseIds = [...new Set(eligibleEnrollments.map((e) => e.course_id).filter(Boolean))];
+    const { data: coursesData } = await supabasePublic
+      .from("maincourses")
+      .select("id, title")
+      .in("id", courseIds);
+
+    const courseTitleMap = new Map<string, string>(
+      (coursesData || []).map((c) => [c.id, c.title])
+    );
+
     const eligibleCoursesData = [];
     let earliestAccessDate = new Date();
     let maxDiffHours = 0;
     
-    // Fallback variables for the primary course
-    let primaryResolvedCourseId = "";
-    let primaryResolvedProductUuid = "";
-    let primaryResolvedCourseTitle = "";
-    let primaryResolvedBatchType = "recorded";
-    let primaryUpgradePrice = fullPrice;
-    
     for (const enrollment of eligibleEnrollments) {
       const resolvedCourseId = enrollment.course_id;
-      const resolvedProductUuid = enrollment.product_id || enrollment.course_id;
       const resolvedBatchType = enrollment.batch_type || "recorded";
-
-      // Fetch product title directly
-      const { data: productData } = await supabasePublic
-        .from("products")
-        .select("title")
-        .eq("id", resolvedProductUuid)
-        .maybeSingle();
-
-      let resolvedCourseTitle = productData?.title;
-
-      if (!resolvedCourseTitle) {
-        const { data: courseData } = await supabasePublic
-          .from("maincourses")
-          .select("title")
-          .eq("id", resolvedCourseId)
-          .maybeSingle();
-        resolvedCourseTitle = courseData?.title || "Your Course";
-      }
+      const resolvedCourseTitle = courseTitleMap.get(resolvedCourseId) || "Your Course";
 
       const accessStartDate = new Date(enrollment.access_start_date || enrollment.created_at);
       const diffHours = (new Date().getTime() - accessStartDate.getTime()) / (1000 * 60 * 60);
@@ -157,12 +143,12 @@ export async function POST(req: NextRequest) {
         const upgradePrice = Math.max(0, targetBundlePrice - totalPaid);
         
         eligibleCoursesData.push({
-          courseId: resolvedProductUuid, // ID used by frontend selection
+          courseId: resolvedCourseId,
           courseTitle: resolvedCourseTitle,
           upgradePrice,
           enrollmentId: enrollment.id,
           resolvedBatchType,
-          resolvedCourseId, // Original phase2 DB course ID
+          resolvedCourseId,
         });
       }
     }
@@ -176,14 +162,16 @@ export async function POST(req: NextRequest) {
     }
 
     // Determine the primary course for default return values
-    // Prefer the one that matches providedProductUuid, else the first one
-    const primaryCourse = eligibleCoursesData.find(c => c.courseId === providedProductUuid) || eligibleCoursesData[0];
+    const primaryCourse =
+      eligibleCoursesData.find((c) => c.courseId === targetCourseFilter) ||
+      eligibleCoursesData[0];
 
     return NextResponse.json({
       eligible: true,
       price: primaryCourse.upgradePrice,
       timeRemainingHours: Math.max(0, 120 - maxDiffHours),
       resolvedProductUuid: primaryCourse.courseId,
+      resolvedCourseId: primaryCourse.courseId,
       resolvedCourseTitle: primaryCourse.courseTitle,
       resolvedBatchType: primaryCourse.resolvedBatchType,
       eligibleCourses: eligibleCoursesData,

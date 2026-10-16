@@ -1,22 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 
-// ---------------------------------------------------------------------------
-// Supabase client — read-only, server-side only.
-//
-// We use the ANON key here because:
-//   1. course_ratings aggregate data is public information (star ratings).
-//   2. We only query AVG + COUNT — no user_id or raw review text is fetched.
-//   3. This function is called exclusively from Next.js Server Components,
-//      so neither the client instance nor the key ever reaches the browser.
-//
-// If RLS on course_ratings ever restricts anon access, swap to the service
-// role key here — but keep this file server-only and never import it from
-// a Client Component.
-// ---------------------------------------------------------------------------
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-// Lazily created — avoids re-creating the client on every call in dev hot-reloads.
 let _client: ReturnType<typeof createClient> | null = null;
 
 function getClient() {
@@ -26,51 +12,52 @@ function getClient() {
   return _client;
 }
 
-// ---------------------------------------------------------------------------
-
 export interface CourseRating {
   averageRating: number;
   totalReviews: number;
 }
 
+const isValidUuid = (val: any) =>
+  typeof val === "string" &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
 /**
  * Fetches the live learner rating aggregate for a course from Supabase.
- *
- * Queries: public.course_ratings WHERE product_id = productUuid OR course_id = maincourse.id
- * Returns: { averageRating, totalReviews }
  */
 export async function getCourseRating(
-  productUuid: string
+  courseId: string
 ): Promise<CourseRating | null> {
-  if (!productUuid) {
+  if (!courseId) {
     return { averageRating: 0, totalReviews: 0 };
   }
 
   try {
     const supabase = getClient();
+    const candidateIds = [courseId];
 
-    // 1. Resolve ALL related maincourse IDs from productUuid
-    const { data: mcData } = await supabase
-      .from("maincourses")
-      .select("id")
-      .or(`product_id.eq.${productUuid},id.eq.${productUuid}`);
+    if (isValidUuid(courseId)) {
+      const { data: mcData } = await supabase
+        .from("maincourses")
+        .select("id, product_id")
+        .or(`id.eq.${courseId},product_id.eq.${courseId}`);
 
-    const courses = mcData as { id: string }[] | null;
-    const courseIds = (courses || []).map(mc => mc.id);
-    if (!courseIds.includes(productUuid)) {
-      courseIds.push(productUuid);
+      if (mcData) {
+        mcData.forEach((mc: any) => {
+          if (mc.id && !candidateIds.includes(mc.id)) candidateIds.push(mc.id);
+          if (mc.product_id && !candidateIds.includes(mc.product_id)) candidateIds.push(mc.product_id);
+        });
+      }
     }
 
-    // 2. Fetch aggregate ratings
     const { data, error } = await supabase
       .from("course_ratings")
       .select("rating")
-      .or(`product_id.eq.${productUuid},course_id.in.(${courseIds.join(",")})`)
+      .or(`course_id.in.(${candidateIds.join(",")}),product_id.in.(${candidateIds.join(",")})`)
       .returns<{ rating: number }[]>();
 
     if (error) {
       console.error(
-        `[rating.service] Failed to fetch ratings for product ${productUuid}:`,
+        `[rating.service] Failed to fetch ratings for course ${courseId}:`,
         error.message
       );
       return null;
@@ -89,7 +76,7 @@ export async function getCourseRating(
     return { averageRating, totalReviews };
   } catch (err) {
     console.error(
-      `[rating.service] Unexpected error for product ${productUuid}:`,
+      `[rating.service] Unexpected error for course ${courseId}:`,
       err
     );
     return null;
@@ -108,40 +95,42 @@ export interface DetailedReview {
 
 /**
  * Fetches detailed reviews for a course from Supabase.
- * Uses a separate query to fetch user profiles to avoid relationship errors.
  */
 export async function getCourseReviews(
-  productUuid: string
+  courseId: string
 ): Promise<DetailedReview[]> {
-  if (!productUuid) {
+  if (!courseId) {
     return [];
   }
 
   try {
     const supabase = getClient();
+    const candidateIds = [courseId];
 
-    // 1. Resolve ALL related maincourse IDs from productUuid
-    const { data: mcData } = await supabase
-      .from("maincourses")
-      .select("id")
-      .or(`product_id.eq.${productUuid},id.eq.${productUuid}`);
+    if (isValidUuid(courseId)) {
+      const { data: mcData } = await supabase
+        .from("maincourses")
+        .select("id, product_id")
+        .or(`id.eq.${courseId},product_id.eq.${courseId}`);
 
-    const courses = mcData as { id: string }[] | null;
-    const courseIds = (courses || []).map(mc => mc.id);
-    if (!courseIds.includes(productUuid)) {
-      courseIds.push(productUuid);
+      if (mcData) {
+        mcData.forEach((mc: any) => {
+          if (mc.id && !candidateIds.includes(mc.id)) candidateIds.push(mc.id);
+          if (mc.product_id && !candidateIds.includes(mc.product_id)) candidateIds.push(mc.product_id);
+        });
+      }
     }
 
-    // 2. Fetch ratings
+    // Fetch ratings
     const { data: reviewsData, error } = await supabase
       .from("course_ratings")
       .select("rating, review, created_at, user_id")
-      .or(`product_id.eq.${productUuid},course_id.in.(${courseIds.join(",")})`)
+      .or(`course_id.in.(${candidateIds.join(",")}),product_id.in.(${candidateIds.join(",")})`)
       .order("created_at", { ascending: false });
 
     if (error) {
       console.error(
-        `[rating.service] Failed to fetch detailed reviews for product ${productUuid}:`,
+        `[rating.service] Failed to fetch detailed reviews for course ${courseId}:`,
         error.message
       );
       return [];
@@ -151,9 +140,9 @@ export async function getCourseReviews(
       return [];
     }
 
-    const reviews = reviewsData as { rating: number, review: string, created_at: string, user_id: string }[];
+    const reviews = reviewsData as { rating: number; review: string; created_at: string; user_id: string }[];
 
-    // 3. Fetch associated usernames from phase2.users
+    // Fetch associated usernames from phase2.users
     const userIds = [...new Set(reviews.map((r) => r.user_id).filter(Boolean))];
     
     let profilesMap: Record<string, { full_name: string; avatar_url?: string }> = {};
@@ -180,7 +169,6 @@ export async function getCourseReviews(
       }
     }
 
-    // 4. Combine them
     return reviews.map((r) => ({
       rating: r.rating,
       review: r.review,
@@ -189,7 +177,7 @@ export async function getCourseReviews(
     }));
   } catch (err) {
     console.error(
-      `[rating.service] Unexpected error fetching detailed reviews for product ${productUuid}:`,
+      `[rating.service] Unexpected error fetching detailed reviews for course ${courseId}:`,
       err
     );
     return [];

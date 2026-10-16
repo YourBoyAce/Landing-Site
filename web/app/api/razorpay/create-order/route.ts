@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
       amount: requestedAmount,
       courseKey,
       productUuid,
+      courseId,
       email,
       bundleTitle,
       targetBundlePrice,
@@ -38,9 +39,10 @@ export async function POST(req: NextRequest) {
     };
 
     // Server-side verification for upgrades
+    const targetCourseId = courseId || productUuid;
     if (
       email &&
-      productUuid &&
+      targetCourseId &&
       (bundleTitle?.toLowerCase().includes("pro") ||
         bundleTitle?.toLowerCase().includes("premium") ||
         bundleTitle?.toLowerCase().includes("live sessions"))
@@ -75,7 +77,7 @@ export async function POST(req: NextRequest) {
             .from("enrollments")
             .select("*, bundles(bundle_name)")
             .eq("user_id", phase2User.id)
-            .eq("course_id", productUuid)
+            .or(`course_id.eq.${targetCourseId},product_id.eq.${targetCourseId}`)
             .eq("status", "active")
             .maybeSingle();
 
@@ -99,7 +101,7 @@ export async function POST(req: NextRequest) {
                   .from("orders")
                   .select("amount")
                   .eq("user_id", phase2User.id)
-                  .eq("course_id", productUuid)
+                  .or(`course_id.eq.${targetCourseId},course_id.eq.${enrollment.course_id}`)
                   .in("status", [
                     "paid",
                     "captured",

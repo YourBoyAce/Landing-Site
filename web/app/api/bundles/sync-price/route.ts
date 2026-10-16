@@ -6,6 +6,15 @@ import { client } from "@/lib/sanity.client";
 export const dynamic = "force-dynamic";
 
 // Helper for CORS preflight and responses
+function checkSyncAuth(request: Request): boolean {
+  const syncSecret = process.env.UPGRADE_HANDOFF_SECRET;
+  if (!syncSecret) return true; // dev fallback if not configured
+  const authHeader = request.headers.get("authorization");
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
+  const headerSecret = request.headers.get("x-sync-secret");
+  return token === syncSecret || headerSecret === syncSecret;
+}
+
 function corsHeaders() {
   return {
     "Access-Control-Allow-Origin": "*",
@@ -27,6 +36,9 @@ export async function OPTIONS() {
  * phase2.bundles price is overwritten with Sanity's ultimate price.
  */
 export async function POST(request: Request) {
+  if (!checkSyncAuth(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   try {
     let body: any = {};
     try {
@@ -148,7 +160,10 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  if (!checkSyncAuth(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   const result = await syncSanityPricesToSupabase();
   return NextResponse.json(
     {

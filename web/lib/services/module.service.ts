@@ -31,87 +31,81 @@ export interface CourseSection {
   order_index: number;
 }
 
+const isValidUuid = (val: any) =>
+  typeof val === "string" &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
 export async function getCourseModules(
-  productUuid: string,
+  courseId: string,
   courseTitle?: string
 ): Promise<{ modules: CourseModule[]; sections: CourseSection[] }> {
   try {
     const supabase = getClient();
-    let courses: { id: string }[] | null = null;
-    let courseError: any = null;
+    let targetCourseId: string | null = null;
 
-    if (productUuid) {
-      // Fetch all courses for this product, ordered by creation date
-      const { data: coursesData, error: err } = await supabase
+    // 1. Direct Course ID check
+    if (courseId && isValidUuid(courseId)) {
+      const { data: mc } = await supabase
         .from("maincourses")
         .select("id")
-        .eq("product_id", productUuid)
-        .order("created_at", { ascending: true });
-      courses = coursesData as { id: string }[] | null;
-      courseError = err;
-    }
+        .eq("id", courseId)
+        .maybeSingle();
 
-    // If productUuid was missing or returned no courses, fallback to matching maincourses by title
-    if ((!courses || courses.length === 0) && courseTitle) {
-      const cleanTitle = courseTitle.split(" ")[0] || courseTitle; // e.g. "Playwright" from "Playwright Course"
-      const { data: titleCourses } = await supabase
-        .from("maincourses")
-        .select("id")
-        .ilike("title", `%${cleanTitle}%`)
-        .order("created_at", { ascending: true });
-
-      if (titleCourses && titleCourses.length > 0) {
-        courses = titleCourses as { id: string }[];
+      const row = mc as any;
+      if (row?.id) {
+        targetCourseId = row.id;
       }
     }
 
-    if (courseError || !courses || courses.length === 0) {
-      if (productUuid) {
-        // Fallback: perhaps the productUuid is actually a maincourse_id from an older setup
-        const { data: fallbackModules, error: fallbackError } = await supabase
-          .from("coursemodules")
-          .select("id, title, duration, order_index, description, thumbnail_url, video_cf_id, section_id, module_type")
-          .eq("maincourse_id", productUuid)
-          .order("order_index", { ascending: true, nullsFirst: false });
+    // 2. Title matching in maincourses if not resolved yet
+    if (!targetCourseId && (courseTitle || courseId)) {
+      const { data: allCourses } = await supabase
+        .from("maincourses")
+        .select("id, title");
 
-        if (!fallbackError && fallbackModules && fallbackModules.length > 0) {
-          // Also fetch fallback sections just in case
-          const { data: fallbackSections } = await supabase
-            .from("course_sections")
-            .select("id, title, order_index")
-            .eq("maincourse_id", productUuid)
-            .order("order_index", { ascending: true });
-          
-          return { modules: fallbackModules, sections: fallbackSections || [] };
+      const coursesList = (allCourses as any[]) || [];
+      if (coursesList.length > 0) {
+        const norm = (s: any) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const searchNorm = norm(courseTitle || courseId);
+        const match = coursesList.find((c: any) => {
+          const cNorm = norm(c.title);
+          return cNorm && (searchNorm.includes(cNorm) || cNorm.includes(searchNorm));
+        });
+        if (match) {
+          targetCourseId = match.id;
         }
       }
+    }
 
+    // If still null, try using courseId as raw ID fallback
+    if (!targetCourseId && courseId && isValidUuid(courseId)) {
+      targetCourseId = courseId;
+    }
+
+    if (!targetCourseId) {
       return { modules: [], sections: [] };
     }
 
-    // Find the first course that actually has modules
-    for (const course of courses) {
-      const { data, error } = await supabase
-        .from("coursemodules")
-        .select("id, title, duration, order_index, description, thumbnail_url, video_cf_id, section_id, module_type")
-        .eq("maincourse_id", course.id)
-        .order("order_index", { ascending: true, nullsFirst: false });
+    // Fetch modules directly by canonical maincourse_id
+    const { data: modulesData, error: modErr } = await supabase
+      .from("coursemodules")
+      .select("id, title, duration, order_index, description, thumbnail_url, video_cf_id, section_id, module_type")
+      .eq("maincourse_id", targetCourseId)
+      .order("order_index", { ascending: true, nullsFirst: false });
 
-      if (!error && data && data.length > 0) {
-        const { data: sectionData } = await supabase
-          .from("course_sections")
-          .select("id, title, order_index")
-          .eq("maincourse_id", course.id)
-          .order("order_index", { ascending: true });
+    const { data: sectionData } = await supabase
+      .from("course_sections")
+      .select("id, title, order_index")
+      .eq("maincourse_id", targetCourseId)
+      .order("order_index", { ascending: true });
 
-        return { modules: data, sections: sectionData || [] };
-      }
-    }
-
-    return { modules: [], sections: [] };
+    return {
+      modules: (!modErr && modulesData) ? modulesData : [],
+      sections: sectionData || [],
+    };
   } catch (err) {
     console.error(
-      `[module.service] Unexpected error for product ${productUuid}:`,
+      `[module.service] Unexpected error for course ${courseId}:`,
       err
     );
     return { modules: [], sections: [] };

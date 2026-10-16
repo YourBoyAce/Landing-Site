@@ -10,6 +10,14 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
+const isValidUuid = (val: any) =>
+  typeof val === "string" &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
+function normalize(str: string | null | undefined): string {
+  return (str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 export default async function CoursePlansPage({ params }: Props) {
   const { slug } = await params;
 
@@ -22,35 +30,57 @@ export default async function CoursePlansPage({ params }: Props) {
   // Course must exist — 404 if not found
   if (!courseData) return notFound();
 
-  // Check if product id exists in Sanity for this course
-  const rawProductId =
-    courseData.productUuid || (courseData as any).productId;
-  const hasProductId = Boolean(
-    rawProductId &&
-      typeof rawProductId === "string" &&
-      rawProductId.trim().length > 0
-  );
+  // Verify that the course exists in public.maincourses (Automate Learning Portal)
+  const rawId = courseData.productUuid || (courseData as any).productId;
+  let courseExistsInPortal = false;
+  let resolvedCourseId: string = courseData.productUuid || courseData._id;
+  let resolvedCourseTitle: string = courseData.title;
 
-  let productExistsInPortal = false;
-  if (hasProductId) {
-    try {
-      const supabase = makeAdminClient();
-      const { data: productRow } = await supabase
-        .from("products")
-        .select("id, is_active")
-        .eq("id", String(rawProductId).trim())
-        .maybeSingle();
+  try {
+    const supabase = makeAdminClient();
+    const { data: allCourses } = await supabase
+      .from("maincourses")
+      .select("id, title");
 
-      if (productRow && productRow.is_active !== false) {
-        productExistsInPortal = true;
+    if (allCourses && allCourses.length > 0) {
+      if (rawId && isValidUuid(rawId)) {
+        const directMatch = allCourses.find(
+          (c) => c.id.toLowerCase() === String(rawId).trim().toLowerCase()
+        );
+        if (directMatch) {
+          courseExistsInPortal = true;
+          resolvedCourseId = directMatch.id;
+          resolvedCourseTitle = directMatch.title || courseData.title;
+        }
       }
-    } catch (e) {
-      console.error("[CoursePlansPage] Failed to verify product in Supabase:", e);
+
+      if (!courseExistsInPortal && (courseData.title || slug)) {
+        const normTitle = normalize(courseData.title);
+        const normSlug = normalize(slug);
+
+        for (const c of allCourses) {
+          const normC = normalize(c.title);
+          if (
+            normC &&
+            (normTitle.includes(normC) ||
+              normC.includes(normTitle) ||
+              normSlug.includes(normC) ||
+              normC.includes(normSlug))
+          ) {
+            courseExistsInPortal = true;
+            resolvedCourseId = c.id;
+            resolvedCourseTitle = c.title || courseData.title;
+            break;
+          }
+        }
+      }
     }
+  } catch (e) {
+    console.error("[CoursePlansPage] Failed to verify course in Supabase:", e);
   }
 
-  // If the product id does not exist in Sanity or learning portal, show the upcoming product state
-  if (!productExistsInPortal) {
+  // If the course does not exist in learning portal, show the upcoming course state
+  if (!courseExistsInPortal) {
     return (
       <main className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-16 sm:py-24">
         <div className="max-w-xl w-full bg-white rounded-3xl p-8 sm:p-12 border border-slate-200 shadow-xl text-center relative overflow-hidden">
@@ -65,11 +95,11 @@ export default async function CoursePlansPage({ params }: Props) {
 
           <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200/80 mb-4 tracking-wide uppercase">
             <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-            Upcoming Product
+            Upcoming Course
           </div>
 
           <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 leading-tight">
-            This is an Upcoming Product
+            This is an Upcoming Course
           </h1>
 
           <p className="mt-2 text-xl font-semibold text-[#0166A7]">
@@ -78,7 +108,7 @@ export default async function CoursePlansPage({ params }: Props) {
 
           <div className="mt-4 space-y-2 text-slate-600">
             <p className="text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
-              This product has not yet been launched in the learning portal. Plan selections and enrollment will open once the product is released!
+              This course has not yet been launched in the learning portal. Plan selections and enrollment will open once the course is released!
             </p>
           </div>
 
@@ -117,7 +147,7 @@ export default async function CoursePlansPage({ params }: Props) {
             Choose Your Plan
           </p>
           <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 leading-tight">
-            {courseData.title}
+            {resolvedCourseTitle || courseData.title}
           </h1>
           <p className="mt-4 text-slate-500 text-base max-w-xl mx-auto">
             All plans include full access to the course content. Choose the
@@ -136,10 +166,10 @@ export default async function CoursePlansPage({ params }: Props) {
                 key={plan._id}
                 bundle={plan}
                 courseSlug={slug}
-                // Pass the course's productUuid (Supabase ID) if available, fallback to Sanity _id
-                // This ensures cart and enrollments use the correct DB product_id.
-                courseId={courseData.productUuid || courseData._id}
-                courseTitle={courseData.title}
+                // Pass the verified maincourses.id directly
+                // This ensures cart and enrollments use the single canonical course_id.
+                courseId={resolvedCourseId}
+                courseTitle={resolvedCourseTitle || courseData.title}
                 recommended={recommendedIds.has(plan._id)}
               />
             ))}

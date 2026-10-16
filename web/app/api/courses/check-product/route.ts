@@ -4,20 +4,31 @@ import { makeAdminClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
+const isValidUuid = (val: any) =>
+  typeof val === "string" &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
+function normalize(str: string | null | undefined): string {
+  return (str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const slug = searchParams.get("slug");
-  const directProductId = searchParams.get("productId") || searchParams.get("productUuid");
+  const directId =
+    searchParams.get("courseId") ||
+    searchParams.get("productId") ||
+    searchParams.get("productUuid");
 
-  if (!slug && !directProductId) {
+  if (!slug && !directId) {
     return NextResponse.json(
-      { error: "Course slug or productId is required" },
+      { error: "Course slug or courseId is required" },
       { status: 400 }
     );
   }
 
   try {
-    let targetUuid: string | null = directProductId ? String(directProductId).trim() : null;
+    let targetId: string | null = directId ? String(directId).trim() : null;
     let courseTitle = "";
 
     // 1. If slug is provided, check course in Sanity
@@ -27,8 +38,7 @@ export async function GET(request: Request) {
           _id,
           title,
           productUuid,
-          productId,
-          useExistingProduct
+          productId
         }`,
         { slug },
         { cache: "no-store" }
@@ -40,67 +50,85 @@ export async function GET(request: Request) {
           courseFound: false,
           title: "",
           slug,
-          message: "This is an Upcoming Product",
+          message: "This is an Upcoming Course",
         });
       }
 
       courseTitle = course.title || "";
-      const rawProductId = course.productUuid || course.productId;
-      if (rawProductId && typeof rawProductId === "string" && rawProductId.trim().length > 0) {
-        targetUuid = rawProductId.trim();
-      } else {
-        targetUuid = null;
+      const rawId = course.productUuid || course.productId;
+      if (rawId && typeof rawId === "string" && rawId.trim().length > 0) {
+        targetId = rawId.trim();
       }
     }
 
-    // If no product ID is configured or found, product does not exist in public.products
-    if (!targetUuid) {
-      return NextResponse.json({
-        exists: false,
-        courseFound: true,
-        productId: null,
-        title: courseTitle,
-        slug,
-        isPortalProduct: false,
-        message: "This is an Upcoming Product",
-      });
-    }
-
-    // 2. Verify whether the product exists in automate-learning-portal (Supabase public.products)
-    let productExistsInPortal = false;
+    // 2. Verify whether the course exists in automate-learning-portal (public.maincourses)
+    let courseExistsInPortal = false;
+    let resolvedCourseId: string | null = null;
+    let resolvedCourseTitle: string = courseTitle;
 
     try {
       const supabase = makeAdminClient();
-      const { data: productRow, error: dbErr } = await supabase
-        .from("products")
-        .select("id, is_active")
-        .eq("id", targetUuid)
-        .maybeSingle();
+      const { data: allCourses, error: dbErr } = await supabase
+        .from("maincourses")
+        .select("id, title");
 
-      if (!dbErr && productRow && productRow.is_active !== false) {
-        productExistsInPortal = true;
+      if (!dbErr && allCourses && allCourses.length > 0) {
+        // Direct UUID match
+        if (targetId && isValidUuid(targetId)) {
+          const directMatch = allCourses.find(
+            (c) => c.id.toLowerCase() === targetId!.toLowerCase()
+          );
+          if (directMatch) {
+            courseExistsInPortal = true;
+            resolvedCourseId = directMatch.id;
+            resolvedCourseTitle = directMatch.title || courseTitle;
+          }
+        }
+
+        // Title or slug match
+        if (!courseExistsInPortal && (courseTitle || slug)) {
+          const normTitle = normalize(courseTitle);
+          const normSlug = normalize(slug);
+
+          for (const c of allCourses) {
+            const normC = normalize(c.title);
+            if (
+              normC &&
+              (normTitle.includes(normC) ||
+                normC.includes(normTitle) ||
+                normSlug.includes(normC) ||
+                normC.includes(normSlug))
+            ) {
+              courseExistsInPortal = true;
+              resolvedCourseId = c.id;
+              resolvedCourseTitle = c.title || courseTitle;
+              break;
+            }
+          }
+        }
       }
     } catch (dbError) {
       console.error("[api/courses/check-product] Supabase verification error:", dbError);
     }
 
     return NextResponse.json({
-      exists: productExistsInPortal,
+      exists: courseExistsInPortal,
       courseFound: true,
-      productId: targetUuid,
-      title: courseTitle,
+      courseId: resolvedCourseId,
+      productId: resolvedCourseId,
+      title: resolvedCourseTitle,
       slug,
-      isPortalProduct: productExistsInPortal,
-      message: productExistsInPortal
-        ? "Active product found in Learning Portal"
-        : "This is an Upcoming Product",
+      isPortalProduct: courseExistsInPortal,
+      message: courseExistsInPortal
+        ? "Active course found in Learning Portal"
+        : "This is an Upcoming Course",
     });
   } catch (error: any) {
     console.error("[api/courses/check-product] Error querying Sanity/Supabase:", error);
     return NextResponse.json(
       {
-        error: "Failed to check course product",
-        message: "This is an Upcoming Product",
+        error: "Failed to check course",
+        message: "This is an Upcoming Course",
       },
       { status: 500 }
     );

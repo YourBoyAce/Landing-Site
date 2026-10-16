@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { cookies, headers } from "next/headers";
 import { client } from "@/lib/sanity.client";
+import { makeAdminClient } from "@/lib/supabase/server";
 import PaymentPageClient from "@/sections/payment-section/PaymentPageClient";
 import UpgradeCheckoutClient, {
   type UpgradeEligibleCourse,
@@ -255,13 +256,53 @@ export default async function PaymentPage({ searchParams }: Props) {
   const resolvedPrice  = resolvedBundle?.price ?? amount;
   const resolvedTitle  = resolvedBundle?.title ?? bundleTitle;
 
+  let canonicalCourseId = params.courseId || "";
+  let canonicalCourseTitle = courseTitle;
+  const isValidUuid = (val: any) =>
+    typeof val === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
+  if (!fromCart && (courseSlug || courseTitle || canonicalCourseId)) {
+    try {
+      const supabase = makeAdminClient();
+      const { data: allCourses } = await supabase.from("maincourses").select("id, title");
+      if (allCourses && allCourses.length > 0) {
+        if (canonicalCourseId && isValidUuid(canonicalCourseId)) {
+          const directMatch = allCourses.find((c) => c.id.toLowerCase() === canonicalCourseId.toLowerCase());
+          if (directMatch) {
+            canonicalCourseId = directMatch.id;
+            canonicalCourseTitle = directMatch.title || courseTitle;
+          }
+        }
+        if (!canonicalCourseId || !isValidUuid(canonicalCourseId)) {
+          const normTitle = (courseTitle || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+          const normSlug = (courseSlug || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+          for (const c of allCourses) {
+            const normC = (c.title || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+            if (normC && (normTitle.includes(normC) || normC.includes(normTitle) || normSlug.includes(normC) || normC.includes(normSlug))) {
+              canonicalCourseId = c.id;
+              canonicalCourseTitle = c.title || courseTitle;
+              break;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[PaymentPage] Failed to resolve maincourse:", e);
+    }
+  }
+
+  if (!canonicalCourseId) {
+    canonicalCourseId = courseData?.productUuid || courseData?._id || "";
+  }
+
   return (
     <main className="min-h-screen bg-slate-50/30">
       <Suspense fallback={<div className="p-20 text-center">Loading checkout…</div>}>
         <PaymentPageClient
           courseSlug={courseSlug}
-          courseTitle={courseTitle}
-          productUuid={courseData?.productUuid || courseData?._id || ""}
+          courseTitle={canonicalCourseTitle || courseTitle}
+          productUuid={canonicalCourseId}
           bundleId={resolvedBundle?._id ?? bundleId}
           bundleTitle={resolvedTitle}
           bundlePrice={resolvedPrice}

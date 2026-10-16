@@ -88,7 +88,7 @@ export default function UpcomingCourseModal({
           {/* Upcoming Badge */}
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200/80 mb-3 tracking-wide uppercase">
             <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-            Upcoming Product
+            Upcoming Course
           </div>
 
           {/* Heading */}
@@ -96,7 +96,7 @@ export default function UpcomingCourseModal({
             id="upcoming-modal-title"
             className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-snug"
           >
-            This is an Upcoming Product
+            This is an Upcoming Course
           </h3>
 
           {/* Course Name */}
@@ -109,7 +109,7 @@ export default function UpcomingCourseModal({
           {/* Primary & Secondary Description */}
           <div className="mt-3 space-y-2 text-slate-600">
             <p className="text-sm text-slate-500 leading-relaxed max-w-sm">
-              This product has not yet been launched in the learning portal. Curriculum modules and enrollment plans will open once the product is released!
+              This course has not yet been launched in the learning portal. Curriculum modules and enrollment plans will open once the course is released!
             </p>
           </div>
 

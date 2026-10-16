@@ -11,6 +11,14 @@ interface Props {
   params: Promise<{ slug: string; planSlug: string }>;
 }
 
+const isValidUuid = (val: any) =>
+  typeof val === "string" &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
+function normalize(str: string | null | undefined): string {
+  return (str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 /**
  * Generic plan detail page.
  * Route: /courses/[slug]/plans/[planSlug]
@@ -31,28 +39,56 @@ export default async function PlanDetailPage({ params }: Props) {
 
   if (!courseData || !plan) return notFound();
 
-  // Verify that the product exists in public.products
-  const rawProductId =
-    courseData.productUuid || (courseData as any).productId;
-  let productExistsInPortal = false;
-  if (rawProductId && typeof rawProductId === "string" && rawProductId.trim().length > 0) {
-    try {
-      const supabase = makeAdminClient();
-      const { data: productRow } = await supabase
-        .from("products")
-        .select("id, is_active")
-        .eq("id", String(rawProductId).trim())
-        .maybeSingle();
+  // Verify that the course exists in public.maincourses (Automate Learning Portal)
+  const rawId = courseData.productUuid || (courseData as any).productId;
+  let courseExistsInPortal = false;
+  let resolvedCourseId: string = courseData.productUuid || courseData._id;
+  let resolvedCourseTitle: string = courseData.title;
 
-      if (productRow && productRow.is_active !== false) {
-        productExistsInPortal = true;
+  try {
+    const supabase = makeAdminClient();
+    const { data: allCourses } = await supabase
+      .from("maincourses")
+      .select("id, title");
+
+    if (allCourses && allCourses.length > 0) {
+      if (rawId && isValidUuid(rawId)) {
+        const directMatch = allCourses.find(
+          (c) => c.id.toLowerCase() === String(rawId).trim().toLowerCase()
+        );
+        if (directMatch) {
+          courseExistsInPortal = true;
+          resolvedCourseId = directMatch.id;
+          resolvedCourseTitle = directMatch.title || courseData.title;
+        }
       }
-    } catch (e) {
-      console.error("[PlanDetailPage] Failed to verify product in Supabase:", e);
+
+      if (!courseExistsInPortal && (courseData.title || courseSlug)) {
+        const normTitle = normalize(courseData.title);
+        const normSlug = normalize(courseSlug);
+
+        for (const c of allCourses) {
+          const normC = normalize(c.title);
+          if (
+            normC &&
+            (normTitle.includes(normC) ||
+              normC.includes(normTitle) ||
+              normSlug.includes(normC) ||
+              normC.includes(normSlug))
+          ) {
+            courseExistsInPortal = true;
+            resolvedCourseId = c.id;
+            resolvedCourseTitle = c.title || courseData.title;
+            break;
+          }
+        }
+      }
     }
+  } catch (e) {
+    console.error("[PlanDetailPage] Failed to verify course in Supabase:", e);
   }
 
-  if (!productExistsInPortal) {
+  if (!courseExistsInPortal) {
     redirect(`/courses/${courseSlug}/plans`);
   }
 
@@ -68,7 +104,7 @@ export default async function PlanDetailPage({ params }: Props) {
             href={`/courses/${courseSlug}`}
             className="hover:text-[#0166A7] transition-colors"
           >
-            {courseData.title}
+            {resolvedCourseTitle || courseData.title}
           </a>
           <span>/</span>
           <a
@@ -91,13 +127,13 @@ export default async function PlanDetailPage({ params }: Props) {
           {/* Right column — sticky on desktop */}
           <div className="lg:sticky lg:top-28">
             {isPremium ? (
-              <PremiumContactForm courseTitle={courseData.title} />
+              <PremiumContactForm courseTitle={resolvedCourseTitle || courseData.title} />
             ) : (
               <ViewPlanOrderSummary
                 plan={plan}
-                courseId={courseData.productUuid || courseData._id}
+                courseId={resolvedCourseId}
                 courseSlug={courseSlug}
-                courseTitle={courseData.title}
+                courseTitle={resolvedCourseTitle || courseData.title}
               />
             )}
           </div>

@@ -137,6 +137,8 @@ export function ViewPlanOrderSummary({
   const handleProceed = () => {
     const params = new URLSearchParams();
     params.set("course", courseSlug);
+    if (courseId) params.set("courseId", courseId);
+    if (courseTitle) params.set("courseTitle", courseTitle);
     params.set("bundleId", plan._id);
     params.set("bundleTitle", displayName);
     params.set("amount", (plan.price ?? 0).toString());
