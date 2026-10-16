@@ -72,7 +72,7 @@ export function PricingCard({
   // ---------------------------------------------------------------------------
   // Navigation URLs
   // ---------------------------------------------------------------------------
-  const badgeSlug = bundle.badge.toLowerCase();
+  const badgeSlug = (bundle.badge || "").toLowerCase();
   const titleSlug = bundle.title
     ? bundle.title.toLowerCase().replace(/\s+/g, "-")
     : bundle._id;

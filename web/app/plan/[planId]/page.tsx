@@ -13,6 +13,8 @@ interface PlanPageProps {
   }>;
 }
 
+export const dynamic = "force-dynamic";
+
 export default async function PlanPage({ params }: PlanPageProps) {
   const { planId: planParam } = await params;
 
@@ -27,14 +29,14 @@ export default async function PlanPage({ params }: PlanPageProps) {
     return (
       p._id === planParam ||
       titleSlug === normalizedPlanParam ||
-      p.badge.toLowerCase() === normalizedPlanParam
+      (p.badge || "").toLowerCase() === normalizedPlanParam
     );
   });
 
   if (!plan) return notFound();
 
   const displayName = getPlanDisplayName(plan);
-  const isPremium = plan.badge.toLowerCase() === "premium";
+  const isPremium = (plan.badge || "").toLowerCase() === "premium";
 
   // For the generic /plan page we don't have a specific course context.
   // Pass generic placeholder IDs so the cart/payment summary still renders.

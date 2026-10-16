@@ -19,6 +19,8 @@ function normalize(str: string | null | undefined): string {
   return (str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+export const dynamic = "force-dynamic";
+
 /**
  * Generic plan detail page.
  * Route: /courses/[slug]/plans/[planSlug]
@@ -92,7 +94,7 @@ export default async function PlanDetailPage({ params }: Props) {
     redirect(`/courses/${courseSlug}/plans`);
   }
 
-  const isPremium = plan.badge.toLowerCase() === "premium";
+  const isPremium = (plan.badge || "").toLowerCase() === "premium";
   const displayName = getPlanDisplayName(plan);
 
   return (
@@ -141,16 +143,4 @@ export default async function PlanDetailPage({ params }: Props) {
       </section>
     </main>
   );
-}
-
-/**
- * Pre-render the three known badge slugs so they are statically optimised.
- * The dynamic fallback still handles any future badges automatically.
- */
-export function generateStaticParams() {
-  return [
-    { planSlug: "starter" },
-    { planSlug: "pro" },
-    { planSlug: "premium" },
-  ];
 }
