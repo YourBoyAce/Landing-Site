@@ -41,12 +41,19 @@ export function PlanDetailCard({ plan }: PlanDetailCardProps) {
       )}
 
       {/* Price */}
-      <div className="flex items-baseline gap-1">
-        <span className="text-4xl font-black text-slate-900">
-          ₹{plan.price.toLocaleString("en-IN")}
-        </span>
-        <span className="text-slate-500 text-sm font-medium">/ one-time</span>
-      </div>
+      {plan.price != null ? (
+        <div className="flex items-baseline gap-1">
+          <span className="text-4xl font-black text-slate-900">
+            ₹{plan.price.toLocaleString("en-IN")}
+          </span>
+          <span className="text-slate-500 text-sm font-medium">/ one-time</span>
+        </div>
+      ) : (
+        <div className="flex items-baseline gap-1">
+          <span className="text-2xl font-bold text-[#0166A7]">Contact Us</span>
+          <span className="text-slate-500 text-sm font-medium">for pricing</span>
+        </div>
+      )}
 
       <div className="h-px bg-slate-100 w-full" />
 

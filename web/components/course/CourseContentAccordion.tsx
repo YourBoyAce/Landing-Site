@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, PlayCircle, MonitorPlay, HelpCircle } from "lucide-react";
+import { ChevronDown, ChevronUp, PlayCircle, MonitorPlay, HelpCircle, FileText } from "lucide-react";
 import { CurriculumModule } from "@/lib/types/course";
 import { CourseModule, CourseSection } from "@/lib/services/module.service";
 
@@ -69,7 +69,10 @@ export default function CourseContentAccordion({ curriculum, modules, dbSections
   // Pre-calculate ordered list of all lectures to find the first 5 video modules
   const orderedLectures = sections.flatMap((sec) => sec.lectures);
   const videoModules = orderedLectures.filter(
-    (m) => (m.module_type || m.type || "video").toLowerCase() !== "quiz"
+    (m) => {
+      const t = (m.module_type || m.type || "video").toLowerCase();
+      return t !== "quiz" && t !== "artifact";
+    }
   );
   const previewVideoIds = new Set(videoModules.slice(0, 5).map((m) => m.id));
 
@@ -165,9 +168,12 @@ export default function CourseContentAccordion({ curriculum, modules, dbSections
               {isExpanded && (
                 <div className="bg-white">
                   {section.lectures.map((lecture, lecIndex) => {
-                    const isQuiz = (lecture.module_type || lecture.type || '').toLowerCase() === 'quiz';
-                    const isPreview = !isQuiz && previewVideoIds.has(lecture.id);
-                    const videoIdx = !isQuiz ? videoModules.findIndex((m) => m.id === lecture.id) : -1;
+                    const modType = (lecture.module_type || lecture.type || '').toLowerCase();
+                    const isQuiz = modType === 'quiz';
+                    const isArtifact = modType === 'artifact';
+                    const isNonPreviewable = isQuiz || isArtifact;
+                    const isPreview = !isNonPreviewable && previewVideoIds.has(lecture.id);
+                    const videoIdx = !isNonPreviewable ? videoModules.findIndex((m) => m.id === lecture.id) : -1;
                     
                     return (
                       <div 
@@ -177,6 +183,8 @@ export default function CourseContentAccordion({ curriculum, modules, dbSections
                         <div className="flex items-start sm:items-center gap-3 max-w-[70%]">
                           {isQuiz ? (
                             <HelpCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5 sm:mt-0" />
+                          ) : isArtifact ? (
+                            <FileText className="w-4 h-4 text-violet-500 shrink-0 mt-0.5 sm:mt-0" />
                           ) : isPreview ? (
                             <PlayCircle className="w-4 h-4 text-brand-blue fill-brand-blue/20 shrink-0 mt-0.5 sm:mt-0" />
                           ) : (
@@ -189,6 +197,11 @@ export default function CourseContentAccordion({ curriculum, modules, dbSections
                             {isQuiz && (
                               <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200/60">
                                 Quiz
+                              </span>
+                            )}
+                            {isArtifact && (
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-violet-50 text-violet-700 border border-violet-200/60">
+                                Artifact
                               </span>
                             )}
                           </div>

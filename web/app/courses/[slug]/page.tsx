@@ -79,7 +79,11 @@ export default async function CoursePage({ params }: Props) {
   }
 
   const orderedModules = groupedSections.flatMap(sec => sec.lectures.map(lec => ({ ...lec, sectionTitle: sec.title })));
-  const videoModules = orderedModules.filter(m => (m.module_type || (m as any).type || 'video').toLowerCase() !== 'quiz');
+  const videoModules = orderedModules.filter(m => {
+    const t = (m.module_type || (m as any).type || 'video').toLowerCase();
+    return t !== 'quiz' && t !== 'artifact';
+  });
+
 
   const heroImageUrl = course.heroImage
     ? urlFor(course.heroImage).width(1200).url()

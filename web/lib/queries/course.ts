@@ -20,9 +20,10 @@ export const COURSES_QUERY = `
   keyConcepts[]{ title },
   instructorImage,
   instructorName,
-  heroImage
+  "heroImage": coalesce(heroImage, *[_type=="course" && slug.current == ^.slug.current][0].heroImage)
 }
 `;
+
 
 export const COURSE_BY_SLUG_QUERY = `
 *[_type=="courseDetails" && slug.current==$slug][0]{
@@ -42,7 +43,7 @@ export const COURSE_BY_SLUG_QUERY = `
   level,
   instructorImage,
   instructorName,
-  heroImage,
+  "heroImage": coalesce(heroImage, *[_type=="course" && slug.current == ^.slug.current][0].heroImage),
   description,
   sampleVideos[]{
     _key,
@@ -88,6 +89,7 @@ export const COURSE_BY_SLUG_QUERY = `
   }
 }
 `;
+
 
 /**
  * Fetches a course's title + the full plan shape required by PricingCard.

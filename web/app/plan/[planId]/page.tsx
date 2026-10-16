@@ -1,8 +1,11 @@
 import { notFound } from "next/navigation";
 import { getPlans } from "@/lib/services/plan.services";
-import CourseGrid from "@/sections/courses-section/CourseGrid";
 import { Plan } from "@/lib/types/plan";
 import { getPlanDisplayName } from "@/lib/plan-display";
+import { PlanDetailCard } from "@/components/layout/plan-detail/PlanDetailCard";
+import { ViewPlanOrderSummary } from "@/components/layout/plan-detail/ViewPlanOrderSummary";
+import { PremiumContactForm } from "@/components/layout/plan-detail/PremiumContactForm";
+import Link from "next/link";
 
 interface PlanPageProps {
   params: Promise<{
@@ -10,74 +13,69 @@ interface PlanPageProps {
   }>;
 }
 
-/**
- * Static placeholder courses shown under a plan.
- * TODO: Replace with a Sanity query that finds courses referencing this plan.
- */
-const STATIC_PLAN_COURSES = [
-  {
-    _id: "static-playwright",
-    title: "Playwright Automation",
-    tagline: "Master modern end-to-end testing with Playwright.",
-    image: "/placeholder.png",
-    students: 5000,
-    hours: 40,
-    slug: "playwright",
-  },
-  {
-    _id: "static-genai",
-    title: "GenAI for QA Automation",
-    tagline: "Leverage AI to automate testing and generate smarter workflows.",
-    image: "/placeholder.png",
-    students: 3500,
-    hours: 32,
-    slug: "genai-qa",
-  },
-  {
-    _id: "static-selenium",
-    title: "Selenium Automation",
-    tagline: "Build robust browser automation with Selenium and JavaScript.",
-    image: "/placeholder.png",
-    students: 4200,
-    hours: 36,
-    slug: "selenium",
-  },
-];
-
 export default async function PlanPage({ params }: PlanPageProps) {
   const { planId: planParam } = await params;
 
   const plans: Plan[] = await getPlans().catch(() => []);
   const normalizedPlanParam = planParam?.toLowerCase() ?? "";
 
-  const plan = plans.find((plan) => {
-    const titleSlug = plan.title
-      ? plan.title.toLowerCase().replace(/\s+/g, "-")
+  const plan = plans.find((p) => {
+    const titleSlug = p.title
+      ? p.title.toLowerCase().replace(/\s+/g, "-")
       : "";
 
-    return plan._id === planParam || titleSlug === normalizedPlanParam;
+    return (
+      p._id === planParam ||
+      titleSlug === normalizedPlanParam ||
+      p.badge.toLowerCase() === normalizedPlanParam
+    );
   });
 
   if (!plan) return notFound();
+
   const displayName = getPlanDisplayName(plan);
+  const isPremium = plan.badge.toLowerCase() === "premium";
+
+  // For the generic /plan page we don't have a specific course context.
+  // Pass generic placeholder IDs so the cart/payment summary still renders.
+  const genericCourseId = plan.bundleUuid ?? plan._id;
+  const genericCourseSlug = "";
+  const genericCourseTitle = "Auto-Mate Course";
 
   return (
-    <section className="py-16 md:py-24 px-6 bg-slate-50">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-10 text-center">
-          <p className="text-sm uppercase tracking-[0.3em] text-brand-blue font-semibold">
-            Plan Courses
-          </p>
-          <h1 className="mt-4 text-4xl md:text-5xl font-extrabold text-slate-900">
-            {displayName}
-          </h1>
-          <p className="mt-4 text-slate-600 max-w-3xl mx-auto">
-            Explore all courses included with this plan.
-          </p>
+    <main className="min-h-screen bg-slate-50">
+      {/* Breadcrumb / header strip */}
+      <section className="bg-white border-b border-slate-100 pt-28 md:pt-32">
+        <div className="max-w-7xl mx-auto px-6 py-5 flex items-center gap-2 text-sm text-slate-500">
+          <Link href="/plans" className="hover:text-[#0166A7] transition-colors">
+            Plans
+          </Link>
+          <span>/</span>
+          <span className="text-slate-900 font-medium">{displayName}</span>
         </div>
+      </section>
 
-        <CourseGrid courses={STATIC_PLAN_COURSES} />
-      </div>
-    </section>
+      {/* Main two-column layout */}
+      <section className="max-w-7xl mx-auto px-6 py-12 md:py-16">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-8 lg:gap-12 items-start">
+          {/* Left column — plan details */}
+          <PlanDetailCard plan={plan} />
+
+          {/* Right column — sticky on desktop */}
+          <div className="lg:sticky lg:top-28">
+            {isPremium ? (
+              <PremiumContactForm courseTitle={genericCourseTitle} />
+            ) : (
+              <ViewPlanOrderSummary
+                plan={plan}
+                courseId={genericCourseId}
+                courseSlug={genericCourseSlug}
+                courseTitle={genericCourseTitle}
+              />
+            )}
+          </div>
+        </div>
+      </section>
+    </main>
   );
 }

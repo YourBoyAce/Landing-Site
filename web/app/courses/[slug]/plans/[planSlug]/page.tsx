@@ -62,7 +62,7 @@ export default async function PlanDetailPage({ params }: Props) {
   return (
     <main className="min-h-screen bg-slate-50">
       {/* Breadcrumb / header strip */}
-      <section className="bg-white border-b border-slate-100">
+      <section className="bg-white border-b border-slate-100 pt-28 md:pt-32">
         <div className="max-w-7xl mx-auto px-6 py-5 flex items-center gap-2 text-sm text-slate-500">
           <a
             href={`/courses/${courseSlug}`}

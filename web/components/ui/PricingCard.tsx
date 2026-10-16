@@ -99,7 +99,7 @@ export function PricingCard({
   // Plan details
   paymentParams.set("bundleId", finalBundleUuid);
   paymentParams.set("bundleTitle", displayName);
-  paymentParams.set("amount", bundle.price.toString());
+  paymentParams.set("amount", (bundle.price ?? 0).toString());
   if (bundle.duration) paymentParams.set("duration", bundle.duration);
   const paymentUrl = `/payment?${paymentParams.toString()}`;
   const buyHref = buttonHref ?? paymentUrl;
@@ -316,7 +316,7 @@ export function PricingCard({
         <div className="flex items-center justify-between mb-4">
           <StarRating rating={bundle.rating ?? 5} showNumber size={16} />
           <span className="font-bold text-slate-900 text-lg">
-            ₹{bundle.price.toLocaleString("en-IN")}
+            {bundle.price != null ? `₹${bundle.price.toLocaleString("en-IN")}` : "Contact Us"}
           </span>
         </div>
 

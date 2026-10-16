@@ -80,12 +80,17 @@ export async function syncSanityPricesToSupabase(plansToSync?: Plan[]): Promise<
 }
 
 export async function getPlans(): Promise<Plan[]> {
-    const plans = await client.fetch<Plan[]>(PLANS_QUERY, {}, { cache: "no-store" });
-    // Overwrite Supabase phase2.bundles with Sanity ultimate prices in the background
-    syncSanityPricesToSupabase(plans).catch((err) =>
-        console.error("[plan.services] Background price sync failed:", err)
-    );
-    return plans;
+    try {
+        const plans = await client.fetch<Plan[]>(PLANS_QUERY, {}, { cache: "no-store" });
+        // Overwrite Supabase phase2.bundles with Sanity ultimate prices in the background
+        syncSanityPricesToSupabase(plans).catch((err) =>
+            console.error("[plan.services] Background price sync failed:", err)
+        );
+        return plans ?? [];
+    } catch (err: any) {
+        console.error("[plan.services] Failed to fetch plans from Sanity:", err?.message ?? err);
+        return [];
+    }
 }
 
 /**
@@ -93,12 +98,17 @@ export async function getPlans(): Promise<Plan[]> {
  * The slug is lowercased in the URL; we capitalise it to match Sanity badge values.
  */
 export async function getPlanByBadge(badgeSlug: string): Promise<Plan | null> {
-    const badge = badgeSlug.charAt(0).toUpperCase() + badgeSlug.slice(1).toLowerCase();
-    const plan = await client.fetch<Plan | null>(PLAN_BY_BADGE_QUERY, { badge }, { cache: "no-store" });
-    if (plan) {
-        syncSanityPricesToSupabase([plan]).catch((err) =>
-            console.error("[plan.services] Background single plan price sync failed:", err)
-        );
+    try {
+        const badge = badgeSlug.charAt(0).toUpperCase() + badgeSlug.slice(1).toLowerCase();
+        const plan = await client.fetch<Plan | null>(PLAN_BY_BADGE_QUERY, { badge }, { cache: "no-store" });
+        if (plan) {
+            syncSanityPricesToSupabase([plan]).catch((err) =>
+                console.error("[plan.services] Background single plan price sync failed:", err)
+            );
+        }
+        return plan ?? null;
+    } catch (err: any) {
+        console.error("[plan.services] Failed to fetch plan by badge from Sanity:", err?.message ?? err);
+        return null;
     }
-    return plan;
 }

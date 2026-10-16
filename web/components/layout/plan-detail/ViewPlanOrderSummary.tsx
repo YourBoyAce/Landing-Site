@@ -32,7 +32,7 @@ export function ViewPlanOrderSummary({
   const router = useRouter();
   const displayName = getPlanDisplayName(plan);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const { enrolledCourseIds, enrolledPlanKeys, enrolledCourseMap } = useAuth();
+  const { isLoggedIn, openAuth, enrolledCourseIds, enrolledPlanKeys, enrolledCourseMap } = useAuth();
 
   const STARTER_BUNDLE_UUID = "350edd44-752b-454a-8bf3-0ffb1915fd78".toLowerCase();
   const PRO_BUNDLE_UUID = "196003df-766a-44a8-8c5c-ab0f6568431b".toLowerCase();
@@ -139,8 +139,15 @@ export function ViewPlanOrderSummary({
     params.set("course", courseSlug);
     params.set("bundleId", plan._id);
     params.set("bundleTitle", displayName);
-    params.set("amount", plan.price.toString());
-    router.push(`/payment?${params.toString()}`);
+    params.set("amount", (plan.price ?? 0).toString());
+    const paymentUrl = `/payment?${params.toString()}`;
+
+    if (!isLoggedIn) {
+      openAuth({ type: "buyNow", payload: paymentUrl });
+      return;
+    }
+
+    router.push(paymentUrl);
   };
 
   return (
@@ -162,7 +169,7 @@ export function ViewPlanOrderSummary({
             <p className="text-sm text-slate-500">{displayName}</p>
           </div>
           <span className="font-bold text-xl text-[#0A3D62] whitespace-nowrap">
-            ₹{plan.price.toLocaleString("en-IN")}
+            {plan.price != null ? `₹${plan.price.toLocaleString("en-IN")}` : "Contact Us"}
           </span>
         </div>
 
@@ -171,7 +178,7 @@ export function ViewPlanOrderSummary({
           <div className="flex justify-between text-gray-600">
             <span>Subtotal</span>
             <span className="font-medium text-gray-900">
-              ₹{plan.price.toLocaleString("en-IN")}
+              {plan.price != null ? `₹${plan.price.toLocaleString("en-IN")}` : "—"}
             </span>
           </div>
           <div className="flex justify-between text-sm">
@@ -184,7 +191,7 @@ export function ViewPlanOrderSummary({
             <span className="font-bold text-[#0A3D62]">Grand Total</span>
             <div className="text-right">
               <span className="block font-black text-3xl text-[#1E90FF]">
-                ₹{plan.price.toLocaleString("en-IN")}
+                {plan.price != null ? `₹${plan.price.toLocaleString("en-IN")}` : "Contact Us"}
               </span>
               <span className="text-[10px] text-gray-400 font-medium italic">
                 Inclusive of all taxes
@@ -231,7 +238,7 @@ export function ViewPlanOrderSummary({
             className="w-full bg-[#0166A7] hover:bg-[#014f82] h-14 rounded-full text-sm font-bold text-white transition-all duration-300 shadow-xl active:scale-95"
           >
             <CreditCard className="w-5 h-5 mr-2" />
-            Upgrade
+            Upgrade Now
           </Button>
         ) : (
           <Button
@@ -239,7 +246,7 @@ export function ViewPlanOrderSummary({
             className="w-full bg-[#1B262C] hover:bg-gray-600 h-14 rounded-full text-sm font-bold transition-all duration-300 shadow-xl active:scale-95"
           >
             <CreditCard className="w-5 h-5 mr-2" />
-            Proceed to Checkout
+            Buy Now
           </Button>
         )}
 
