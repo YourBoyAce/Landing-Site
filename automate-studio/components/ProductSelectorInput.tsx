@@ -113,7 +113,7 @@ export function ProductSelectorInput(props: StringInputProps) {
         <Flex align="center" gap={3}>
           <Spinner muted />
           <Text muted size={1}>
-            Loading products from Learning Portal…
+            Loading courses from Learning Portal…
           </Text>
         </Flex>
       </Card>
@@ -126,7 +126,7 @@ export function ProductSelectorInput(props: StringInputProps) {
       <Card padding={3} radius={2} tone="caution">
         <Stack space={2}>
           <Text size={1} weight="semibold">
-            Could not load products
+            Could not load courses
           </Text>
           <Text muted size={1}>
             {error}
@@ -144,7 +144,7 @@ export function ProductSelectorInput(props: StringInputProps) {
     return (
       <Card padding={3} radius={2} tone="transparent">
         <Text muted size={1}>
-          No active products found in the Learning Portal.
+          No courses found in the Learning Portal.
         </Text>
       </Card>
     )
@@ -165,7 +165,7 @@ export function ProductSelectorInput(props: StringInputProps) {
         padding={3}
         radius={2}
       >
-        <option value="">— Select a product —</option>
+        <option value="">— Select an LMS course —</option>
         {products.map((product) => (
           <option key={product.id} value={product.id}>
             {product.title}
@@ -205,7 +205,7 @@ export function ProductSelectorInput(props: StringInputProps) {
                 {selectedProduct.title}
               </Text>
               <Text muted size={1} style={{marginTop: 4}}>
-                UUID: {selectedProduct.id}
+                Course ID: {selectedProduct.id}
               </Text>
             </Box>
           </Flex>

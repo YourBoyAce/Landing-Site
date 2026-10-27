@@ -33,24 +33,22 @@ export interface LmsProduct {
   id: string
   title: string
   thumbnail_url: string | null
-  is_active: boolean
 }
 
 /**
- * Fetch all active products from public.products.
+ * Fetch all courses directly from public.maincourses.
  * Returns an empty array on error so the UI degrades gracefully.
  */
 export async function fetchActiveProducts(): Promise<LmsProduct[]> {
   if (!supabaseUrl || !supabaseAnonKey) return []
 
   const {data, error} = await supabase
-    .from('products')
-    .select('id, title, thumbnail_url, is_active')
-    .eq('is_active', true)
-    .order('title', {ascending: true})
+    .from("maincourses")
+    .select("id, title, thumbnail_url")
+    .order("title", {ascending: true})
 
   if (error) {
-    console.error('[fetchActiveProducts]', error.message)
+    console.error("[fetchActiveProducts]", error.message)
     return []
   }
 

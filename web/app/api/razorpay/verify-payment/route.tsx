@@ -611,7 +611,8 @@ export async function POST(req: Request) {
     // ------------------------------------------------------------------
     const accessStartDate = new Date();
     const accessEndDate = new Date();
-    accessEndDate.setFullYear(accessEndDate.getFullYear() + 1);
+    // Recorded session courses provide lifetime access
+    accessEndDate.setFullYear(accessEndDate.getFullYear() + 100);
 
     if (portalUpgradeMeta) {
       // ── Portal upgrade path ────────────────────────────────────────────

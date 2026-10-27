@@ -18,14 +18,14 @@ export default defineType({
 
     defineField({
       name: 'useExistingProduct',
-      title: 'Use Existing LMS Product',
+      title: 'Link to Learning Portal Course',
       type: 'boolean',
       initialValue: false,
     }),
 
     defineField({
       name: 'productUuid',
-      title: 'Linked Product',
+      title: 'Linked Course',
       type: 'string',
       hidden: ({parent}) => !parent?.useExistingProduct,
       components: {
