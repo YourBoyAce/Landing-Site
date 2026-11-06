@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { User, BookOpen, ChevronDown, ChevronUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -150,20 +150,30 @@ export default function PaymentPageClient({
   const [email, setEmail] = useState(initialEmail);
   const [phone, setPhone] = useState(initialPhone);
   const [comments, setComments] = useState("");
+  const [errors, setErrors] = useState<{
+    name?: string;
+    email?: string;
+    phone?: string;
+  }>({});
 
   // Cart items — populated on mount when coming from /cart with multiple items
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
   const { user } = useAuth();
 
+  const hasInitializedNameRef = useRef(Boolean(initialName));
+  const hasInitializedEmailRef = useRef(Boolean(initialEmail));
+
   useEffect(() => {
-    if (user?.email && !email) {
+    if (user?.email && !hasInitializedEmailRef.current) {
       setEmail(user.email);
+      hasInitializedEmailRef.current = true;
     }
-    if (user?.name && !name) {
+    if (user?.name && !hasInitializedNameRef.current) {
       setName(user.name);
+      hasInitializedNameRef.current = true;
     }
-  }, [user, email, name]);
+  }, [user]);
 
   useEffect(() => {
     if (fromCart) {
@@ -173,6 +183,37 @@ export default function PaymentPageClient({
   }, [fromCart]);
 
   // For single-course checkout the total is bundlePrice (possibly pro-rated).
+  const validateForm = () => {
+    const newErrors: { name?: string; email?: string; phone?: string } = {};
+
+    if (!name.trim()) {
+      newErrors.name = "Please fill in your full name";
+    }
+
+    if (!email.trim()) {
+      newErrors.email = "Please fill in your email address";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      newErrors.email = "Please enter a valid email address";
+    }
+
+    if (!phone.trim()) {
+      newErrors.phone = "Please fill in your WhatsApp number";
+    } else if (phone.trim().length < 10) {
+      newErrors.phone = "Please enter a valid 10-digit WhatsApp number";
+    }
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      const firstKey = Object.keys(newErrors)[0];
+      const elem = document.getElementById(firstKey);
+      elem?.focus();
+      elem?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return false;
+    }
+
+    return true;
+  };
   const cartTotal = cartItems.reduce((s, i) => s + i.selectedPlanPrice, 0);
 
   const [finalPrice, setFinalPrice] = useState(bundlePrice);
@@ -422,16 +463,25 @@ export default function PaymentPageClient({
                   htmlFor="name"
                   className="text-sm font-semibold text-gray-700"
                 >
-                  Full Name
+                  Full Name <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="name"
                   placeholder="John Doe"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  disabled={isUpgradeEligible && !!initialName}
-                  className={`h-12 rounded-xl ${isUpgradeEligible && !!initialName ? "bg-slate-50 cursor-not-allowed text-slate-500" : ""}`}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }));
+                  }}
+                  className={`h-12 rounded-xl transition-all ${
+                    errors.name
+                      ? "border-red-500 focus-visible:ring-red-500 ring-1 ring-red-500 bg-red-50/20"
+                      : ""
+                  }`}
                 />
+                {errors.name && (
+                  <p className="text-xs text-red-500 mt-1 font-medium">{errors.name}</p>
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -439,17 +489,19 @@ export default function PaymentPageClient({
                   htmlFor="email"
                   className="text-sm font-semibold text-gray-700"
                 >
-                  Email Address
+                  Email Address <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="email"
                   type="email"
                   placeholder="john@example.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={isUpgradeEligible && !!initialEmail}
-                  className={`h-12 rounded-xl ${isUpgradeEligible && !!initialEmail ? "bg-slate-50 cursor-not-allowed text-slate-500" : ""}`}
+                  disabled
+                  className="h-12 rounded-xl bg-slate-50 cursor-not-allowed text-slate-500 border-slate-200"
                 />
+                {errors.email && (
+                  <p className="text-xs text-red-500 mt-1 font-medium">{errors.email}</p>
+                )}
               </div>
 
               <div className="sm:col-span-2 space-y-1.5">
@@ -457,11 +509,11 @@ export default function PaymentPageClient({
                   htmlFor="phone"
                   className="text-sm font-semibold text-gray-700"
                 >
-                  Phone Number
+                  WhatsApp Number <span className="text-red-500">*</span>
                 </Label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <span className="text-slate-500 font-medium text-sm">
+                    <span className={`font-medium text-sm ${errors.phone ? "text-red-500" : "text-slate-500"}`}>
                       +91
                     </span>
                   </div>
@@ -473,27 +525,19 @@ export default function PaymentPageClient({
                     onChange={(e) => {
                       const val = e.target.value.replace(/\D/g, "");
                       if (val.length <= 10) setPhone(val);
+                      if (errors.phone) setErrors((prev) => ({ ...prev, phone: undefined }));
                     }}
                     disabled={isUpgradeEligible && isPhoneAutofilled}
-                    className={`h-12 rounded-xl pl-12 ${isUpgradeEligible && isPhoneAutofilled ? "bg-slate-50 cursor-not-allowed text-slate-500" : ""}`}
+                    className={`h-12 rounded-xl pl-12 transition-all ${
+                      errors.phone
+                        ? "border-red-500 focus-visible:ring-red-500 ring-1 ring-red-500 bg-red-50/20"
+                        : ""
+                    } ${isUpgradeEligible && isPhoneAutofilled ? "bg-slate-50 cursor-not-allowed text-slate-500" : ""}`}
                   />
                 </div>
-              </div>
-
-              <div className="sm:col-span-2 space-y-1.5">
-                <Label
-                  htmlFor="comments"
-                  className="text-sm font-semibold text-gray-700"
-                >
-                  Additional Comments
-                </Label>
-                <textarea
-                  id="comments"
-                  value={comments}
-                  onChange={(e) => setComments(e.target.value)}
-                  placeholder="Tell us about your goals…"
-                  className="w-full min-h-[120px] rounded-xl border border-input px-3 py-3 text-sm focus:ring-2 focus:ring-[#1E90FF] outline-none transition-all"
-                />
+                {errors.phone && (
+                  <p className="text-xs text-red-500 mt-1 font-medium">{errors.phone}</p>
+                )}
               </div>
             </div>
           </motion.section>
@@ -518,6 +562,7 @@ export default function PaymentPageClient({
             targetBundlePrice={bundlePrice}
             batch={batch}
             userData={{ name, email, phone, comments }}
+            onValidate={validateForm}
             cartItems={
               fromCart && cartItems.length > 0
                 ? cartItems

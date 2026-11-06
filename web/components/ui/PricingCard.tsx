@@ -12,12 +12,11 @@ import {
   CircleSlash,
   ShoppingCart,
 } from "lucide-react";
-import { StarRating } from "@/components/ui/StarRating";
 import { PlanFeatureList } from "@/components/ui/PlanFeatureList";
 import { urlFor } from "@/lib/sanity.client";
 import { Plan } from "@/lib/types/plan";
 import { addToCart, removeFromCart, getCart } from "@/lib/services/cart";
-import { getPlanDisplayName } from "@/lib/plan-display";
+import { getPlanDisplayName, getPlanSubtitle } from "@/lib/plan-display";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface PricingCardProps {
@@ -68,6 +67,14 @@ export function PricingCard({
     ? bundle.batchOptions.join(" or ")
     : "Weekday or Weekend";
   const displayName = getPlanDisplayName(bundle);
+  const effectiveCourseTitle =
+    courseTitle ||
+    (courseSlug
+      ? courseSlug
+          .replace(/[-_]/g, " ")
+          .replace(/\b\w/g, (char) => char.toUpperCase())
+      : undefined);
+  const subtitle = getPlanSubtitle(bundle, effectiveCourseTitle);
 
   // ---------------------------------------------------------------------------
   // Navigation URLs
@@ -312,19 +319,16 @@ export function PricingCard({
 
       {/* Card body */}
       <div className="p-6 md:p-8 flex flex-col flex-grow">
-        {/* Rating & Price */}
-        <div className="flex items-center justify-between mb-4">
-          <StarRating rating={bundle.rating ?? 5} showNumber size={16} />
-          <span className="font-bold text-slate-900 text-lg">
+        {/* Title & Price Header */}
+        <div className="flex items-center justify-between gap-4 mb-1">
+          <h3 className="text-xl md:text-2xl font-bold text-slate-900">
+            {displayName}
+          </h3>
+          <span className="text-xl md:text-2xl font-bold text-slate-900 shrink-0">
             {bundle.price != null ? `₹${bundle.price.toLocaleString("en-IN")}` : "Contact Us"}
           </span>
         </div>
-
-        {/* Title */}
-        <h3 className="text-xl md:text-2xl font-bold mb-1 text-slate-900">
-          {displayName}
-        </h3>
-        <p className="text-sm text-slate-500 mb-5">By Auto-Mate</p>
+        <p className="text-sm text-slate-500 mb-5">{subtitle}</p>
 
         {/* Metadata */}
         <div className="flex items-center gap-5 text-xs font-medium text-slate-600 mb-6">

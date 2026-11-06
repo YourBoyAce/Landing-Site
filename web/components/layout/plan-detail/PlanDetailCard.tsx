@@ -3,10 +3,11 @@ import { Clock, LayoutList } from "lucide-react";
 import { Plan } from "@/lib/types/plan";
 import { StarRating } from "@/components/ui/StarRating";
 import { PlanFeatureList } from "@/components/ui/PlanFeatureList";
-import { getPlanDisplayName } from "@/lib/plan-display";
+import { getPlanDisplayName, getPlanSubtitle } from "@/lib/plan-display";
 
 interface PlanDetailCardProps {
   plan: Plan;
+  courseTitle?: string;
 }
 
 /**
@@ -14,9 +15,10 @@ interface PlanDetailCardProps {
  * Displays all plan metadata and features.
  * Server-renderable — no client-side state.
  */
-export function PlanDetailCard({ plan }: PlanDetailCardProps) {
+export function PlanDetailCard({ plan, courseTitle }: PlanDetailCardProps) {
   const batchLabel = "Recorded Video Access";
   const displayName = getPlanDisplayName(plan);
+  const subtitle = getPlanSubtitle(plan, courseTitle);
 
   return (
     <div className="bg-white rounded-[24px] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-8 md:p-10 flex flex-col gap-6">
@@ -32,7 +34,7 @@ export function PlanDetailCard({ plan }: PlanDetailCardProps) {
         <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 leading-tight">
           {displayName}
         </h1>
-        <p className="text-sm text-slate-500 mt-1">By Auto-Mate</p>
+        <p className="text-sm text-slate-500 mt-1">{subtitle}</p>
       </div>
 
       {/* Rating */}

@@ -29,6 +29,7 @@ interface SummaryProps {
    * all items to verify-payment for enrollment. The cart is cleared on success.
    */
   cartItems?: CartItem[];
+  onValidate?: () => boolean;
 }
 
 declare global {
@@ -47,6 +48,7 @@ export default function OrderSummary({
   batch,
   userData,
   cartItems,
+  onValidate,
 }: SummaryProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [modal, setModal] = useState<{
@@ -75,13 +77,10 @@ export default function OrderSummary({
     : `Enrollment for ${courseName}`;
 
   const handlePayment = async () => {
-    if (!userData.name || !userData.email || !userData.phone) {
-      setModal({
-        isOpen: true,
-        status: "error",
-        message:
-          "Please fill in your name, email, and phone number before proceeding.",
-      });
+    if (onValidate) {
+      const isValid = onValidate();
+      if (!isValid) return;
+    } else if (!userData.name || !userData.email || !userData.phone) {
       return;
     }
 

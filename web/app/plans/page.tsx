@@ -45,6 +45,7 @@ export default async function PlansPage({
                   key={plan._id}
                   bundle={plan}
                   courseSlug={params?.course}
+                  courseTitle={params?.course ? courseName : undefined}
                 />
               ))
             ) : (

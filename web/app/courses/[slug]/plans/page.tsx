@@ -5,6 +5,9 @@ import { getCoursePlans } from "@/lib/services/course.service";
 import { getPlans } from "@/lib/services/plan.services";
 import { PricingCard } from "@/components/ui/PricingCard";
 import { makeAdminClient } from "@/lib/supabase/server";
+import { getCourseRating, getCourseReviews } from "@/lib/services/rating.service";
+import { StarRating } from "@/components/ui/StarRating";
+import CourseReviewsModal from "@/components/course/CourseReviewsModal";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -137,6 +140,20 @@ export default async function CoursePlansPage({ params }: Props) {
     (courseData.bundles ?? []).map((b) => b._id)
   );
 
+  // Parallel fetch: Supabase live rating and detailed reviews for this course
+  const ratingTargetId = courseData.productUuid || resolvedCourseId;
+  const [liveRating, detailedReviews] = await Promise.all([
+    ratingTargetId
+      ? getCourseRating(ratingTargetId)
+      : Promise.resolve({ averageRating: 0, totalReviews: 0 }),
+    ratingTargetId
+      ? getCourseReviews(ratingTargetId)
+      : Promise.resolve([]),
+  ]);
+
+  const hasReviews = liveRating !== null && liveRating.totalReviews > 0;
+  const ratingError = liveRating === null;
+
   return (
     <main className="min-h-screen bg-slate-50">
       <section className="max-w-7xl mx-auto px-6 py-16 md:py-24">
@@ -149,6 +166,33 @@ export default async function CoursePlansPage({ params }: Props) {
           <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 leading-tight">
             {resolvedCourseTitle || courseData.title}
           </h1>
+
+          {/* Single Course Rating & Reviews */}
+          {!ratingError && (
+            <div className="flex items-center justify-center gap-2 mt-4">
+              {hasReviews ? (
+                <>
+                  <span className="text-amber-500 font-extrabold text-base">
+                    {liveRating!.averageRating.toFixed(1)}
+                  </span>
+                  <StarRating
+                    rating={liveRating!.averageRating}
+                    showNumber={false}
+                    size={18}
+                  />
+                  <CourseReviewsModal
+                    averageRating={liveRating!.averageRating}
+                    totalReviews={liveRating!.totalReviews}
+                    reviews={detailedReviews}
+                    triggerClassName="text-slate-500 underline cursor-pointer hover:text-slate-800 text-sm font-medium"
+                  />
+                </>
+              ) : (
+                <span className="text-slate-400 text-sm">No ratings yet</span>
+              )}
+            </div>
+          )}
+
           <p className="mt-4 text-slate-500 text-base max-w-xl mx-auto">
             All plans include full access to the course content. Choose the
             one that fits your goals.

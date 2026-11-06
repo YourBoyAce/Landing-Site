@@ -124,7 +124,10 @@ export default async function PlanDetailPage({ params }: Props) {
       <section className="max-w-7xl mx-auto px-6 py-12 md:py-16">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-8 lg:gap-12 items-start">
           {/* Left column — plan details */}
-          <PlanDetailCard plan={plan} />
+          <PlanDetailCard
+            plan={plan}
+            courseTitle={resolvedCourseTitle || courseData.title}
+          />
 
           {/* Right column — sticky on desktop */}
           <div className="lg:sticky lg:top-28">

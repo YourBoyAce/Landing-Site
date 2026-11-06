@@ -4,7 +4,6 @@ import HomeFeaturedCourses from '@/sections/HomeFeaturedCourses';
 import HomeAbout from '@/sections/HomeAbout';
 import HomeCTA from '@/sections/HomeCTA';
 import Testimonials from '@/sections/Testimonials';
-import FAQSection from '@/sections/FAQSection';
 import HomeHighlight from '@/sections/HomeHighlight';
 import { client } from '@/lib/sanity.client';
 
@@ -25,7 +24,6 @@ export default async function HomePage() {
       <HomeAbout />
       <Testimonials initialData={testimonials} />
       <Blog />
-      <FAQSection />
       <HomeCTA />
     </div>
   );

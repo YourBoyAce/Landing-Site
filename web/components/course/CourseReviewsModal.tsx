@@ -8,6 +8,7 @@ interface CourseReviewsModalProps {
   averageRating: number;
   totalReviews: number;
   reviews: DetailedReview[];
+  triggerClassName?: string;
 }
 
 function timeAgo(dateString: string) {
@@ -28,7 +29,12 @@ function timeAgo(dateString: string) {
   return `${diffInYears} year${diffInYears > 1 ? 's' : ''} ago`;
 }
 
-export default function CourseReviewsModal({ averageRating, totalReviews, reviews }: CourseReviewsModalProps) {
+export default function CourseReviewsModal({
+  averageRating,
+  totalReviews,
+  reviews,
+  triggerClassName,
+}: CourseReviewsModalProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   // Calculate rating distribution
@@ -47,7 +53,7 @@ export default function CourseReviewsModal({ averageRating, totalReviews, review
     <>
       <span
         onClick={() => setIsOpen(true)}
-        className="text-slate-300 underline cursor-pointer hover:text-white"
+        className={triggerClassName || "text-slate-300 underline cursor-pointer hover:text-white"}
       >
         ({totalReviews} {totalReviews === 1 ? "rating" : "ratings"})
       </span>
