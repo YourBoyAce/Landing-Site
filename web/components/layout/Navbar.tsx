@@ -31,13 +31,13 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   const [cartCount, setCartCount] = useState(0);
-  
   const { isLoggedIn, user, logout, openAuth, enrolledCourseIds } = useAuth();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [showLogoutAlert, setShowLogoutAlert] = useState(false);
   const [showMyLearning, setShowMyLearning] = useState(false);
   const [activeCourses, setActiveCourses] = useState<any[]>([]);
   const [isLoadingCourses, setIsLoadingCourses] = useState(false);
+  const showCartControl = false;
 
   useEffect(() => {
     if (isLoggedIn && user) {
@@ -312,6 +312,16 @@ export default function Navbar() {
                   className="h-6 sm:h-8 w-auto md:h-10"
                 />
               </Link>
+                {showCartControl && (
+                  <Link href="/cart" className="relative">
+                    <ShoppingCart className="w-6 h-6 text-slate-800 cursor-pointer hover:text-[#0166A7] transition-colors" />
+                    {cartCount > 0 && (
+                      <span className="absolute -top-1.5 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white shadow-sm border-2 border-white">
+                        {cartCount}
+                      </span>
+                    )}
+                  </Link>
+                )}
 
               {/* Hidden SVG Gooey filter definition */}
               <svg
@@ -367,15 +377,6 @@ export default function Navbar() {
               </div>
               <div className={`ml-auto flex shrink-0 items-center gap-2 md:gap-4 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] ${isVisible ? "opacity-100 translate-x-0 scale-100" : "opacity-0 -translate-x-20 scale-75 pointer-events-none"
                 }`}>
-                <Link href="/cart" className="relative">
-                  <ShoppingCart className="w-6 h-6 text-slate-800 cursor-pointer hover:text-[#0166A7] transition-colors" />
-                  {cartCount > 0 && (
-                    <span className="absolute -top-1.5 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[11px] font-bold text-white shadow-sm border-2 border-white">
-                      {cartCount}
-                    </span>
-                  )}
-                </Link>
-                
                 {isLoggedIn ? (
                     <div className="relative" ref={profileRef}>
                       <button

@@ -42,10 +42,9 @@ interface PricingCardProps {
  * Plan card used on the course plans grid and generic /plans page.
  *
  * - Clicking anywhere on the card navigates to the plan detail page.
- * - Buttons: [Add to Cart]  [Buy Now]
+ * - Starter / Pro plans have a Buy Now button.
  *   • Premium plan: [View Plan] only (no cart / buy)
  *
- * Cart identity: (courseId ?? bundle._id, bundle._id) so plans are always unique.
  */
 export function PricingCard({
   bundle,
@@ -113,6 +112,7 @@ export function PricingCard({
   const buyLabel = buttonLabel ?? "Buy Now";
 
   const isPremium = badgeSlug === "premium";
+  const showCartControl = false;
 
   const STARTER_BUNDLE_UUID = "350edd44-752b-454a-8bf3-0ffb1915fd78".toLowerCase();
   const PRO_BUNDLE_UUID = "196003df-766a-44a8-8c5c-ab0f6568431b".toLowerCase();
@@ -155,7 +155,7 @@ export function PricingCard({
   };
 
   // ---------------------------------------------------------------------------
-  // Cart & Enrollment state — keyed on (resolvedCourseId, bundle._id)
+  // Enrollment state
   // ---------------------------------------------------------------------------
   const candidateCourseIds = [courseId, courseSlug, bundle._id].filter(Boolean) as string[];
   const isEnrolledInCourse = candidateCourseIds.some((id) => enrolledCourseIds?.has(id));
@@ -200,7 +200,7 @@ export function PricingCard({
 
   // Upgrade is only available when user owns a lower tier and this card is a higher tier
   const isUpgrade = isEnrolledInCourse && !isEnrolledInThisPlan && thisCardTier > userEnrolledTier;
-  
+
   const [addedToCart, setAddedToCart] = useState(false);
   const [isOtherPlanInCart, setIsOtherPlanInCart] = useState(false);
 
@@ -240,7 +240,6 @@ export function PricingCard({
       : null,
   });
 
-  /** The actual cart add (called directly when logged in, or deferred after login) */
   const doAddToCart = () => {
     addToCart(getCartItemPayload());
   };
@@ -250,7 +249,6 @@ export function PricingCard({
     e.stopPropagation();
 
     if (addedToCart) {
-      // Remove doesn't need auth guard
       removeFromCart(resolvedCourseId, finalBundleUuid);
       return;
     }
@@ -399,52 +397,52 @@ export function PricingCard({
               Upgrade
             </Button>
           ) : (
-            /* Starter / Pro: Add to Cart + Buy Now */
-            <div className="flex gap-3">
-              {/* Add to Cart */}
-              {isOtherPlanInCart ? (
-                <div
-                  title="Another plan for this course is already in your cart. Remove it first to choose a different plan."
-                  className="flex-1 cursor-not-allowed"
-                >
-                  <Button
-                    variant="outline"
-                    disabled
-                    className="w-full rounded-full font-bold py-6 flex items-center justify-center gap-2 bg-slate-50 text-slate-400 border-slate-200 pointer-events-none"
-                  >
-                    <CircleSlash className="w-4 h-4" /> Unavailable
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  variant="outline"
-                  onClick={handleCartToggle}
-                  className={`flex-1 rounded-full font-bold py-6 transition-all flex items-center justify-center gap-2 ${
-                    addedToCart
-                      ? "bg-[#0166A7] border-[#0166A7] text-white hover:bg-white hover:text-[#0166A7] hover:border-[#0166A7]"
-                      : "border-slate-300 text-slate-700 hover:bg-[#0166A7] hover:text-white hover:border-[#0166A7]"
-                  }`}
-                >
-                  {addedToCart ? (
-                    <>
-                      Added <Trash2 className="w-4 h-4" />
-                    </>
+            <>
+              {showCartControl && (
+                <div className="flex gap-3">
+                  {isOtherPlanInCart ? (
+                    <div
+                      title="Another plan for this course is already in your cart. Remove it first to choose a different plan."
+                      className="flex-1 cursor-not-allowed"
+                    >
+                      <Button
+                        variant="outline"
+                        disabled
+                        className="w-full rounded-full font-bold py-6 flex items-center justify-center gap-2 bg-slate-50 text-slate-400 border-slate-200 pointer-events-none"
+                      >
+                        <CircleSlash className="w-4 h-4" /> Unavailable
+                      </Button>
+                    </div>
                   ) : (
-                    <>
-                      <ShoppingCart className="w-4 h-4" /> Add to Cart
-                    </>
+                    <Button
+                      variant="outline"
+                      onClick={handleCartToggle}
+                      className={`flex-1 rounded-full font-bold py-6 transition-all flex items-center justify-center gap-2 ${
+                        addedToCart
+                          ? "bg-[#0166A7] border-[#0166A7] text-white hover:bg-white hover:text-[#0166A7] hover:border-[#0166A7]"
+                          : "border-slate-300 text-slate-700 hover:bg-[#0166A7] hover:text-white hover:border-[#0166A7]"
+                      }`}
+                    >
+                      {addedToCart ? (
+                        <>
+                          Added <Trash2 className="w-4 h-4" />
+                        </>
+                      ) : (
+                        <>
+                          <ShoppingCart className="w-4 h-4" /> Add to Cart
+                        </>
+                      )}
+                    </Button>
                   )}
-                </Button>
+                </div>
               )}
-
-              {/* Buy Now */}
               <Button
-                className="flex-1 rounded-full bg-[#0166A7] text-white font-bold py-6 hover:bg-[#014f82] transition-all border-0"
+                className="w-full rounded-full bg-[#0166A7] text-white font-bold py-6 hover:bg-[#014f82] transition-all border-0"
                 onClick={handleBuyNow}
               >
                 {buyLabel}
               </Button>
-            </div>
+            </>
           )}
         </div>
       </div>

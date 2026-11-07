@@ -1,12 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Star, Check, Loader2 } from "lucide-react";
-import { Button } from "../ui/button";
-import UpcomingCourseModal from "../course/UpcomingCourseModal";
+import { Star, Check } from "lucide-react";
 
 interface CourseCardProps {
   slug: string;
@@ -52,35 +48,9 @@ export default function CourseCard({
   productUuid,
 }: CourseCardProps) {
   const router = useRouter();
-  const [isCheckingPlans, setIsCheckingPlans] = useState(false);
-  const [showUpcomingModal, setShowUpcomingModal] = useState(false);
-
-  const handleViewPlansClick = async (e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleViewCourseDetailsClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
-
-    if (isCheckingPlans) return;
-    setIsCheckingPlans(true);
-
-    try {
-      // First check in Sanity if product ID exists for this course
-      const res = await fetch(
-        `/api/courses/check-product?slug=${encodeURIComponent(slug)}`,
-        { cache: "no-store" }
-      );
-      const data = await res.json();
-
-      if (data.exists) {
-        router.push(`/courses/${slug}/plans`);
-      } else {
-        setShowUpcomingModal(true);
-      }
-    } catch (err) {
-      console.error("[CourseCard] Error checking product:", err);
-      setShowUpcomingModal(true);
-    } finally {
-      setIsCheckingPlans(false);
-    }
+    router.push(`/courses/${slug}`);
   };
 
   // The user requested to not have the instructor's name below the title.
@@ -238,27 +208,13 @@ export default function CourseCard({
         <div className="mt-4 flex gap-2 w-full">
           <button
             type="button"
-            disabled={isCheckingPlans}
-            className="w-full bg-brand-blue hover:bg-brand-dark text-white text-base md:text-lg font-bold py-3 md:py-4 rounded-xl transition-colors shrink-0 flex items-center justify-center gap-2 disabled:opacity-80"
-            onClick={handleViewPlansClick}
+            className="w-full bg-brand-blue hover:bg-brand-dark text-white text-base md:text-lg font-bold py-3 md:py-4 rounded-xl transition-colors shrink-0 flex items-center justify-center gap-2"
+            onClick={handleViewCourseDetailsClick}
           >
-            {isCheckingPlans ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>Checking...</span>
-              </>
-            ) : (
-              <span>View Plan</span>
-            )}
+            <span>View course details</span>
           </button>
         </div>
       </div>
-
-      <UpcomingCourseModal
-        isOpen={showUpcomingModal}
-        onClose={() => setShowUpcomingModal(false)}
-        courseTitle={title}
-      />
     </div>
   );
 }

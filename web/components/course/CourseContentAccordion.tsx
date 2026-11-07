@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, PlayCircle, MonitorPlay, HelpCircle, FileText } from "lucide-react";
+import { ChevronDown, ChevronUp, PlayCircle, MonitorPlay } from "lucide-react";
 import { CurriculumModule } from "@/lib/types/course";
 import { CourseModule, CourseSection } from "@/lib/services/module.service";
 
@@ -66,24 +66,33 @@ export default function CourseContentAccordion({ curriculum, modules, dbSections
     }
   }
 
-  // Pre-calculate ordered list of all lectures to find the first 5 video modules
-  const orderedLectures = sections.flatMap((sec) => sec.lectures);
-  const videoModules = orderedLectures.filter(
-    (m) => {
-      const t = (m.module_type || m.type || "video").toLowerCase();
-      return t !== "quiz" && t !== "artifact";
-    }
-  );
+  const uploadedVideoSections = sections
+    .map((section) => ({
+      ...section,
+      lectures: section.lectures.filter((module) => {
+        const type = (module.module_type || module.type || "video").toLowerCase();
+        return (
+          type !== "quiz" &&
+          type !== "artifact" &&
+          Boolean(module.video_cf_id?.trim())
+        );
+      }),
+    }))
+    .filter((section) => section.lectures.length > 0);
+
+  const orderedLectures = uploadedVideoSections.flatMap((section) => section.lectures);
+  const videoModules = orderedLectures;
   const previewVideoIds = new Set(videoModules.slice(0, 5).map((m) => m.id));
+  const contentModules = orderedLectures;
 
   const INITIAL_VISIBLE_SECTIONS = 5;
   const [showAllSections, setShowAllSections] = useState(false);
   const [expandedSections, setExpandedSections] = useState<number[]>([0]); // Expand first by default
 
-  const visibleSections = showAllSections || sections.length <= INITIAL_VISIBLE_SECTIONS
-    ? sections
-    : sections.slice(0, INITIAL_VISIBLE_SECTIONS);
-  const hiddenSectionsCount = sections.length - INITIAL_VISIBLE_SECTIONS;
+  const visibleSections = showAllSections || uploadedVideoSections.length <= INITIAL_VISIBLE_SECTIONS
+    ? uploadedVideoSections
+    : uploadedVideoSections.slice(0, INITIAL_VISIBLE_SECTIONS);
+  const hiddenSectionsCount = uploadedVideoSections.length - INITIAL_VISIBLE_SECTIONS;
 
   const toggleSection = (index: number) => {
     setExpandedSections((prev) => 
@@ -93,14 +102,14 @@ export default function CourseContentAccordion({ curriculum, modules, dbSections
 
   const expandAll = () => {
     setShowAllSections(true);
-    if (expandedSections.length === sections.length) {
+    if (expandedSections.length === uploadedVideoSections.length) {
       setExpandedSections([]);
     } else {
-      setExpandedSections(sections.map((_, i) => i));
+      setExpandedSections(uploadedVideoSections.map((_, i) => i));
     }
   };
 
-  const totalLength = modules.reduce((acc, mod) => {
+  const totalLength = contentModules.reduce((acc, mod) => {
     if (!mod.duration) return acc;
     const parts = mod.duration.split(':').map(Number);
     if (parts.length === 3) return acc + parts[0] * 3600 + parts[1] * 60 + parts[2];
@@ -122,13 +131,13 @@ export default function CourseContentAccordion({ curriculum, modules, dbSections
     <div className="w-full">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4">
         <div className="text-sm font-semibold text-slate-700">
-          {sections.length} section{sections.length !== 1 ? 's' : ''} • {modules.length} lecture{modules.length !== 1 ? 's' : ''} {totalTimeStr ? `• ${totalTimeStr}` : ''}
+          {uploadedVideoSections.length} section{uploadedVideoSections.length !== 1 ? 's' : ''} • {contentModules.length} lecture{contentModules.length !== 1 ? 's' : ''} {totalTimeStr ? `• ${totalTimeStr}` : ''}
         </div>
         <button 
           onClick={expandAll}
           className="text-brand-blue font-bold text-sm hover:text-brand-dark transition-colors mt-2 sm:mt-0 cursor-pointer"
         >
-          {expandedSections.length === sections.length && showAllSections ? "Collapse all sections" : "Expand all sections"}
+          {expandedSections.length === uploadedVideoSections.length && showAllSections ? "Collapse all sections" : "Expand all sections"}
         </button>
       </div>
 
@@ -168,12 +177,8 @@ export default function CourseContentAccordion({ curriculum, modules, dbSections
               {isExpanded && (
                 <div className="bg-white">
                   {section.lectures.map((lecture, lecIndex) => {
-                    const modType = (lecture.module_type || lecture.type || '').toLowerCase();
-                    const isQuiz = modType === 'quiz';
-                    const isArtifact = modType === 'artifact';
-                    const isNonPreviewable = isQuiz || isArtifact;
-                    const isPreview = !isNonPreviewable && previewVideoIds.has(lecture.id);
-                    const videoIdx = !isNonPreviewable ? videoModules.findIndex((m) => m.id === lecture.id) : -1;
+                    const isPreview = previewVideoIds.has(lecture.id);
+                    const videoIdx = videoModules.findIndex((m) => m.id === lecture.id);
                     
                     return (
                       <div 
@@ -181,11 +186,7 @@ export default function CourseContentAccordion({ curriculum, modules, dbSections
                         className={`flex items-start sm:items-center justify-between p-3 px-4 ${lecIndex !== 0 ? 'border-t border-slate-100' : ''} hover:bg-slate-50 transition-colors`}
                       >
                         <div className="flex items-start sm:items-center gap-3 max-w-[70%]">
-                          {isQuiz ? (
-                            <HelpCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5 sm:mt-0" />
-                          ) : isArtifact ? (
-                            <FileText className="w-4 h-4 text-violet-500 shrink-0 mt-0.5 sm:mt-0" />
-                          ) : isPreview ? (
+                          {isPreview ? (
                             <PlayCircle className="w-4 h-4 text-brand-blue fill-brand-blue/20 shrink-0 mt-0.5 sm:mt-0" />
                           ) : (
                             <MonitorPlay className="w-4 h-4 text-slate-400 shrink-0 mt-0.5 sm:mt-0" />
@@ -194,16 +195,6 @@ export default function CourseContentAccordion({ curriculum, modules, dbSections
                             <span className={`text-sm ${isPreview ? 'text-black font-bold' : 'text-slate-700'}`}>
                               {lecture.title}
                             </span>
-                            {isQuiz && (
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200/60">
-                                Quiz
-                              </span>
-                            )}
-                            {isArtifact && (
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-violet-50 text-violet-700 border border-violet-200/60">
-                                Artifact
-                              </span>
-                            )}
                           </div>
                         </div>
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs shrink-0 items-end">
@@ -238,7 +229,7 @@ export default function CourseContentAccordion({ curriculum, modules, dbSections
         })}
       </div>
 
-      {sections.length > INITIAL_VISIBLE_SECTIONS && (
+      {uploadedVideoSections.length > INITIAL_VISIBLE_SECTIONS && (
         <div className="mt-4 flex justify-center">
           {!showAllSections ? (
             <button
@@ -246,7 +237,7 @@ export default function CourseContentAccordion({ curriculum, modules, dbSections
               onClick={() => setShowAllSections(true)}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-slate-300 bg-white font-bold text-sm text-brand-blue shadow-sm hover:bg-slate-50 hover:border-brand-blue hover:shadow transition-all cursor-pointer"
             >
-              <span>Show all {sections.length} sections ({hiddenSectionsCount} more)</span>
+              <span>Show all {uploadedVideoSections.length} sections ({hiddenSectionsCount} more)</span>
               <ChevronDown className="w-4 h-4 text-brand-blue" />
             </button>
           ) : (

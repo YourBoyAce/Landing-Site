@@ -79,9 +79,9 @@ export default async function CoursePage({ params }: Props) {
   }
 
   const orderedModules = groupedSections.flatMap(sec => sec.lectures.map(lec => ({ ...lec, sectionTitle: sec.title })));
-  const videoModules = orderedModules.filter(m => {
+  const previewableModules = orderedModules.filter(m => {
     const t = (m.module_type || (m as any).type || 'video').toLowerCase();
-    return t !== 'quiz' && t !== 'artifact';
+    return t !== 'quiz' && t !== 'artifact' && Boolean(m.video_cf_id?.trim());
   });
 
 
@@ -95,7 +95,7 @@ export default async function CoursePage({ params }: Props) {
   //   totalReviews > 0     → show stars + count
   const hasReviews = liveRating !== null && liveRating.totalReviews > 0;
   const ratingError = liveRating === null;
-  const featuredSampleVideo = videoModules.length > 0 ? videoModules[0] : undefined;
+  const featuredSampleVideo = previewableModules[0];
 
   return (
     <main className="bg-white text-slate-900">
@@ -325,24 +325,20 @@ export default async function CoursePage({ params }: Props) {
                     <SampleVideoPreview
                       courseTitle={course.title}
                       featuredVideo={{
-                        key: (featuredSampleVideo as any)._key ?? (featuredSampleVideo as any).id ?? String((featuredSampleVideo as any).url),
-                        title: (featuredSampleVideo as any).title,
-                        url: (featuredSampleVideo as any).url,
-                        cloudflareId: (featuredSampleVideo as any).video_cf_id,
-                        description: (featuredSampleVideo as any).description,
-                        duration: (featuredSampleVideo as any).duration,
-                        poster: (featuredSampleVideo as any).thumbnail_url || ((featuredSampleVideo as any).video_cf_id
-                          ? `https://videodelivery.net/${(featuredSampleVideo as any).video_cf_id}/thumbnails/thumbnail.jpg`
-                          : ((featuredSampleVideo as any).poster
-                            ? urlFor((featuredSampleVideo as any).poster).width(600).url()
-                            : heroImageUrl)),
+                        key: featuredSampleVideo.id,
+                        title: featuredSampleVideo.title,
+                        cloudflareId: featuredSampleVideo.video_cf_id?.trim(),
+                        description: featuredSampleVideo.description,
+                        duration: featuredSampleVideo.duration ?? undefined,
+                        poster: featuredSampleVideo.thumbnail_url ||
+                          `https://videodelivery.net/${featuredSampleVideo.video_cf_id?.trim()}/thumbnails/thumbnail.jpg`,
                         isLocked: false,
                       }}
-                      videos={videoModules.map((mod, index) => ({
+                      videos={previewableModules.map((mod, index) => ({
                         key: mod.id,
                         title: mod.title,
-                        cloudflareId: mod.video_cf_id || undefined,
-                        poster: mod.thumbnail_url || (mod.video_cf_id ? `https://videodelivery.net/${mod.video_cf_id}/thumbnails/thumbnail.jpg` : undefined),
+                        cloudflareId: mod.video_cf_id?.trim(),
+                        poster: mod.thumbnail_url || `https://videodelivery.net/${mod.video_cf_id?.trim()}/thumbnails/thumbnail.jpg`,
                         description: mod.description || undefined,
                         duration: mod.duration || undefined,
                         isLocked: index >= 5,
