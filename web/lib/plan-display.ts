@@ -44,7 +44,7 @@ export function getPlanSubtitle(
     titleLower.includes("pro");
 
   if (isPro) {
-    return "Your Learning. Our Mentorship. Your Career Growth.";
+    return "Full Course Access, Live Sessions & Career Growth.";
   }
 
   // Live sessions (Premium) & others stay unchanged:

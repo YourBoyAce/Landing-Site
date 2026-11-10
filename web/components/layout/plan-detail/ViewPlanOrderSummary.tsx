@@ -47,11 +47,7 @@ export function ViewPlanOrderSummary({
       lower.startsWith("pro ") ||
       lower.endsWith(" pro") ||
       lower.includes("pro plan") ||
-      lower === "pro-plan"
-    ) {
-      return 2;
-    }
-    if (
+      lower === "pro-plan" ||
       lower === PREMIUM_BUNDLE_UUID ||
       lower === "premium" ||
       lower.startsWith("premium ") ||
@@ -59,7 +55,7 @@ export function ViewPlanOrderSummary({
       lower.includes("premium plan") ||
       lower.includes("live sessions")
     ) {
-      return 3;
+      return 2;
     }
     if (
       lower === STARTER_BUNDLE_UUID ||

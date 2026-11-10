@@ -320,7 +320,7 @@ export default function UpgradeCheckoutClient({ eligibleCourses, token }: Props)
             Upgrade to Pro
           </h1>
           <p className="text-slate-500 text-sm md:text-base max-w-2xl lg:mx-0 mx-auto">
-            Select the courses you want to upgrade. Unlock Labs, Quizzes, and Mentorship.
+            Select the courses you want to upgrade. Unlock Live Sessions, Labs, and Quizzes.
           </p>
         </div>
 

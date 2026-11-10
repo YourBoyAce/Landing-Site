@@ -14,7 +14,7 @@ export default async function Courses() {
         </h2>
 
         {plans.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-2">
             {plans.map((plan) => (
               <PricingCard
                 key={plan._id}

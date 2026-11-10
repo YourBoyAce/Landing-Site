@@ -37,8 +37,8 @@ export default async function PlansPage({
       </section>
 
       <section className="py-12 md:py-16">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-3">
+        <div className="mx-auto max-w-5xl px-6">
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
             {plans.length > 0 ? (
               plans.map((plan) => (
                 <PricingCard

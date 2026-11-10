@@ -79,14 +79,28 @@ export async function syncSanityPricesToSupabase(plansToSync?: Plan[]): Promise<
     }
 }
 
+export function isHiddenThirdPlan(
+    plan?: Pick<Plan, "badge" | "title"> | null
+): boolean {
+    if (!plan) return false;
+    const badge = (plan.badge || "").trim().toLowerCase();
+    const title = (plan.title || "").trim().toLowerCase();
+    return (
+        badge === "premium" ||
+        title.startsWith("premium") ||
+        title === "live sessions"
+    );
+}
+
 export async function getPlans(): Promise<Plan[]> {
     try {
         const plans = await client.fetch<Plan[]>(PLANS_QUERY, {}, { cache: "no-store" });
+        const visiblePlans = (plans ?? []).filter((plan) => !isHiddenThirdPlan(plan));
         // Overwrite Supabase phase2.bundles with Sanity ultimate prices in the background
-        syncSanityPricesToSupabase(plans).catch((err) =>
+        syncSanityPricesToSupabase(visiblePlans).catch((err) =>
             console.error("[plan.services] Background price sync failed:", err)
         );
-        return plans ?? [];
+        return visiblePlans;
     } catch (err: any) {
         console.error("[plan.services] Failed to fetch plans from Sanity:", err?.message ?? err);
         return [];
@@ -94,19 +108,23 @@ export async function getPlans(): Promise<Plan[]> {
 }
 
 /**
- * Fetch a single plan by its badge slug (e.g. "starter", "pro", "premium").
+ * Fetch a single plan by its badge slug (e.g. "starter", "pro").
  * The slug is lowercased in the URL; we capitalise it to match Sanity badge values.
  */
 export async function getPlanByBadge(badgeSlug: string): Promise<Plan | null> {
     try {
+        if (badgeSlug.trim().toLowerCase() === "premium") {
+            return null;
+        }
         const badge = badgeSlug.charAt(0).toUpperCase() + badgeSlug.slice(1).toLowerCase();
         const plan = await client.fetch<Plan | null>(PLAN_BY_BADGE_QUERY, { badge }, { cache: "no-store" });
-        if (plan) {
-            syncSanityPricesToSupabase([plan]).catch((err) =>
-                console.error("[plan.services] Background single plan price sync failed:", err)
-            );
+        if (!plan || isHiddenThirdPlan(plan)) {
+            return null;
         }
-        return plan ?? null;
+        syncSanityPricesToSupabase([plan]).catch((err) =>
+            console.error("[plan.services] Background single plan price sync failed:", err)
+        );
+        return plan;
     } catch (err: any) {
         console.error("[plan.services] Failed to fetch plan by badge from Sanity:", err?.message ?? err);
         return null;

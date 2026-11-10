@@ -204,7 +204,7 @@ export default async function CoursePlansPage({ params }: Props) {
             No plans available yet — please check back soon.
           </p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-2">
             {allPlans.map((plan) => (
               <PricingCard
                 key={plan._id}
