@@ -12,7 +12,6 @@ export const PLAN_BY_BADGE_QUERY = `
   rating,
   reviewCount,
   duration,
-  batchOptions,
   coverImage,
   features[]{
     title,
@@ -32,7 +31,6 @@ export const PLANS_QUERY = `
     rating,
     reviewCount,
     duration,
-    batchOptions,
     coverImage,
     features[]{
         title,

@@ -12,7 +12,6 @@ export interface Plan {
     rating: number;
     reviewCount: number;
     duration: string;
-    batchOptions: string[];
     coverImage: any;
     features: PlanFeature[];
 }

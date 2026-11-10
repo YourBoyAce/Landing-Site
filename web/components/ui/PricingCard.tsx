@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Clock,
-  LayoutList,
   Trash2,
   CircleSlash,
   ShoppingCart,
@@ -62,9 +61,6 @@ export function PricingCard({
     ? urlFor(bundle.coverImage).width(800).url()
     : "/placeholder.png";
 
-  const batchLabel = bundle.batchOptions?.length
-    ? bundle.batchOptions.join(" or ")
-    : "Weekday or Weekend";
   const displayName = getPlanDisplayName(bundle);
   const effectiveCourseTitle =
     courseTitle ||
@@ -329,10 +325,6 @@ export function PricingCard({
           <div className="flex items-center gap-1.5">
             <Clock className="w-4 h-4 text-slate-400" />
             {bundle.duration}
-          </div>
-          <div className="flex items-center gap-1.5">
-            <LayoutList className="w-4 h-4 text-slate-400" />
-            {batchLabel}
           </div>
         </div>
 

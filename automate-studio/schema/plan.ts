@@ -71,14 +71,6 @@ export default defineType({
         }),
 
         defineField({
-            name: "batchOptions",
-            title: "Batch Options",
-            type: "array",
-            of: [{ type: "string" }],
-            initialValue: ["Weekday", "Weekend"],
-        }),
-
-        defineField({
             name: "features",
             title: "Features",
             type: "array",

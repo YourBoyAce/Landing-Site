@@ -13,13 +13,9 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
-const isValidUuid = (val: any) =>
+const isValidUuid = (val: unknown) =>
   typeof val === "string" &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
-
-function normalize(str: string | null | undefined): string {
-  return (str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-}
 
 export default async function CoursePlansPage({ params }: Props) {
   const { slug } = await params;
@@ -34,7 +30,7 @@ export default async function CoursePlansPage({ params }: Props) {
   if (!courseData) return notFound();
 
   // Verify that the course exists in public.maincourses (Automate Learning Portal)
-  const rawId = courseData.productUuid || (courseData as any).productId;
+  const rawId = courseData.productUuid || courseData.productId;
   let courseExistsInPortal = false;
   let resolvedCourseId: string = courseData.productUuid || courseData._id;
   let resolvedCourseTitle: string = courseData.title;
@@ -54,27 +50,6 @@ export default async function CoursePlansPage({ params }: Props) {
           courseExistsInPortal = true;
           resolvedCourseId = directMatch.id;
           resolvedCourseTitle = directMatch.title || courseData.title;
-        }
-      }
-
-      if (!courseExistsInPortal && (courseData.title || slug)) {
-        const normTitle = normalize(courseData.title);
-        const normSlug = normalize(slug);
-
-        for (const c of allCourses) {
-          const normC = normalize(c.title);
-          if (
-            normC &&
-            (normTitle.includes(normC) ||
-              normC.includes(normTitle) ||
-              normSlug.includes(normC) ||
-              normC.includes(normSlug))
-          ) {
-            courseExistsInPortal = true;
-            resolvedCourseId = c.id;
-            resolvedCourseTitle = c.title || courseData.title;
-            break;
-          }
         }
       }
     }

@@ -62,7 +62,7 @@ const COURSE_TITLE_QUERY = `
 const PLAN_QUERY = `
   *[_type=="plan" && _id==$planId][0]{
     _id, title, badge, price, rating, reviewCount,
-    duration, batchOptions, coverImage,
+    duration, coverImage,
     features[]{ title, included }
   }
 `;
@@ -245,7 +245,7 @@ export default async function PaymentPage({ searchParams }: Props) {
     const PLAN_BY_TITLE_QUERY = `
       *[_type=="plan" && title match $title][0]{
         _id, title, badge, price, rating, reviewCount,
-        duration, batchOptions, coverImage,
+        duration, coverImage,
         features[]{ title, included }
       }
     `;

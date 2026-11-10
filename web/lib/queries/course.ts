@@ -80,7 +80,6 @@ export const COURSE_BY_SLUG_QUERY = `
     rating,
     reviewCount,
     duration,
-    batchOptions,
     coverImage,
     features[]{
       title,
@@ -111,7 +110,6 @@ export const COURSE_PLANS_QUERY = `
     rating,
     reviewCount,
     duration,
-    batchOptions,
     coverImage,
     features[]{
       title,

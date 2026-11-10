@@ -4,13 +4,9 @@ import { makeAdminClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-const isValidUuid = (val: any) =>
+const isValidUuid = (val: unknown) =>
   typeof val === "string" &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
-
-function normalize(str: string | null | undefined): string {
-  return (str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -28,7 +24,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    let targetId: string | null = directId ? String(directId).trim() : null;
+    let targetId: string | null = slug ? null : directId ? String(directId).trim() : null;
     let courseTitle = "";
 
     // 1. If slug is provided, check course in Sanity
@@ -84,28 +80,6 @@ export async function GET(request: Request) {
             resolvedCourseTitle = directMatch.title || courseTitle;
           }
         }
-
-        // Title or slug match
-        if (!courseExistsInPortal && (courseTitle || slug)) {
-          const normTitle = normalize(courseTitle);
-          const normSlug = normalize(slug);
-
-          for (const c of allCourses) {
-            const normC = normalize(c.title);
-            if (
-              normC &&
-              (normTitle.includes(normC) ||
-                normC.includes(normTitle) ||
-                normSlug.includes(normC) ||
-                normC.includes(normSlug))
-            ) {
-              courseExistsInPortal = true;
-              resolvedCourseId = c.id;
-              resolvedCourseTitle = c.title || courseTitle;
-              break;
-            }
-          }
-        }
       }
     } catch (dbError) {
       console.error("[api/courses/check-product] Supabase verification error:", dbError);
@@ -123,7 +97,7 @@ export async function GET(request: Request) {
         ? "Active course found in Learning Portal"
         : "This is an Upcoming Course",
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[api/courses/check-product] Error querying Sanity/Supabase:", error);
     return NextResponse.json(
       {
