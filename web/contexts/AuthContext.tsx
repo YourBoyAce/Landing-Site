@@ -39,29 +39,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [enrolledCourseMap, setEnrolledCourseMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    // Reusable fetch for user profile to sync username from phase2.users
+    // Reusable fetch for user profile to sync username and email from phase2.users / profiles
     const fetchUserProfile = async (userId: string, initialName?: string) => {
       try {
         const { data: p2User } = await supabaseBrowser
           .schema("phase2")
           .from("users")
-          .select("username")
+          .select("username, email")
           .eq("auth_user_id", userId)
           .maybeSingle();
 
-        if (p2User?.username?.trim()) {
-          setUser((prev) => (prev ? { ...prev, name: p2User.username.trim() } : prev));
+        if (p2User?.username?.trim() || p2User?.email?.trim()) {
+          setUser((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  ...(p2User.username?.trim() ? { name: p2User.username.trim() } : {}),
+                  ...(p2User.email?.trim() ? { email: p2User.email.trim() } : {}),
+                }
+              : prev
+          );
           return;
         }
 
         const { data: profile } = await supabaseBrowser
           .from("profiles")
-          .select("full_name")
+          .select("full_name, email")
           .eq("id", userId)
           .maybeSingle();
 
-        if (profile?.full_name?.trim()) {
-          setUser((prev) => (prev ? { ...prev, name: profile.full_name.trim() } : prev));
+        if (profile?.full_name?.trim() || profile?.email?.trim()) {
+          setUser((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  ...(profile.full_name?.trim() ? { name: profile.full_name.trim() } : {}),
+                  ...(profile.email?.trim() ? { email: profile.email.trim() } : {}),
+                }
+              : prev
+          );
           return;
         }
 
@@ -75,12 +91,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Reusable fetch for user enrollments to update UI buttons
     const fetchEnrollments = async (userId: string) => {
-      const { data } = await supabaseBrowser
+      let { data } = await supabaseBrowser
         .schema("phase2")
         .from("enrollments")
         .select("course_id, product_id, bundle_id, users!inner(auth_user_id)")
         .eq("users.auth_user_id", userId)
         .eq("status", "active");
+
+      if (!data || data.length === 0) {
+        const { data: directData } = await supabaseBrowser
+          .schema("phase2")
+          .from("enrollments")
+          .select("course_id, product_id, bundle_id")
+          .eq("user_id", userId)
+          .eq("status", "active");
+        if (directData && directData.length > 0) {
+          data = directData.map((d) => ({ ...d, users: [] }));
+        }
+      }
 
       if (data) {
         const courseIds = new Set<string>();
@@ -278,11 +306,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    // Keep profile name fresh when window regains focus or tab is revisited
+    // Keep profile and enrollments fresh when window regains focus or tab is revisited
+    let lastSyncedAt = 0;
     const handleSyncProfile = () => {
+      if (document.visibilityState === "hidden") return;
+      const now = Date.now();
+      if (now - lastSyncedAt < 1000) return;
+      lastSyncedAt = now;
+
       supabaseBrowser.auth.getSession().then(({ data: { session } }) => {
         if (session?.user?.id) {
           fetchUserProfile(session.user.id);
+          fetchEnrollments(session.user.id);
         }
       });
     };

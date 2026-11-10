@@ -108,7 +108,7 @@ export function ViewPlanOrderSummary({
 
   const isEnrolledInThisPlan = hasSpecificPlan
     ? candidateCourseIds.some((id) => enrolledPlanKeys?.has(`${id}::${finalBundleUuid}`)) ||
-      userPlanKeysForCourse.some((k) => getPlanTierLevel(k) === thisPlanTier)
+    userPlanKeysForCourse.some((k) => getPlanTierLevel(k) === thisPlanTier)
     : (isEnrolledInCourse && thisPlanTier === 1);
 
   const isLowerTierDisabled = isEnrolledInCourse && !isEnrolledInThisPlan && thisPlanTier < userEnrolledTier;

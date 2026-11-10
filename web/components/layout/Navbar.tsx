@@ -116,7 +116,7 @@ export default function Navbar() {
       setActiveCourses([]);
       setIsLoadingCourses(false);
     }
-  }, [isLoggedIn, user]);
+  }, [isLoggedIn, user?.id, user?.email, enrolledCourseIds]);
 
   const hasEnrolledCourses =
     activeCourses.length > 0 || (enrolledCourseIds && enrolledCourseIds.size > 0);
